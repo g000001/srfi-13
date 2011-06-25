@@ -45,7 +45,7 @@
   `(progn ,@body))
 
 (defun CHECK-ARG-to-DECLARE (expr)
-  (destructuring-bind (ignore var pred name) expr
+  (destructuring-bind (ignore pred var name) expr
     (declare (ignore ignore name))
     `(declare ((satisfies ,pred) ,var))))
 
@@ -70,15 +70,18 @@
                      (defun ,name (,@(restify args))
                        ,(CHECK-ARG-to-DECLARE decl)
                        ,@body)
-                     (defconstant* ,name (function ,name)))
+                     ;(defconstant* ,name (function ,name))
+                     )
                   `(eval-when (:compile-toplevel :load-toplevel :execute)
                      (defun ,name (,@(restify args))
                        ,decl
                        ,@body)
-                     (defconstant* ,name (function ,name)))))))
+                     ;(defconstant* ,name (function ,name))
+                     )))))
     (symbol `(progn
                (setf (symbol-function ',name&args) (progn ,@body))
-               (defconstant* ,name&args (progn ,@body))))))
+               ;(defconstant* ,name&args (progn ,@body))
+               ))))
 
 (define any #'cl:some)
 ;(define foldl #'srfi-1:fold)

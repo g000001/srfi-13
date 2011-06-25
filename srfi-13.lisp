@@ -228,7 +228,7 @@
       (substring s start end)))
 
 (define (string-copy s . maybe-start+end)
-  (let-string-start+end (start end) string-copy s maybe-start+end
+  (let-string-start+end (start end) #'string-copy s maybe-start+end
     (substring s start end)))
 
 ;This library uses the R5RS SUBSTRING, but doesn't export it.
@@ -496,7 +496,7 @@
 		       string-every criterion)))))|#
 
 
-(define (string-any criterion s . maybe-start+end)
+#|(define (string-any criterion s . maybe-start+end)
   (let-string-start+end (start end) string-any s maybe-start+end
     (cond ((char? criterion)
 	   (let lp ((i start))
@@ -519,7 +519,7 @@
 			(or (criterion c) (lp i1)))))))
 
 	  (else (error "Second param is neither char-set, char, or predicate procedure."
-		       string-any criterion)))))
+		       string-any criterion)))))|#
 
 
 (define (string-tabulate proc len)
@@ -906,7 +906,7 @@
       (let-string-start+end (start end) string-hash-ci s rest
         (%string-hash s (lambda (c) (char->integer (char-downcase c)))
 		      bound start end)))))
-
+|||#
 ;;; Case hacking
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; string-upcase  s [start end]
@@ -920,24 +920,24 @@
 ;;;   first char, lowercase rest.
 
 (define (string-upcase  s . maybe-start+end)
-  (let-string-start+end (start end) string-upcase s maybe-start+end
-    (%string-map char-upcase s start end)))
+  (let-string-start+end (start end) #'string-upcase s maybe-start+end
+    (%string-map #'char-upcase s start end)))
 
 (define (string-upcase! s . maybe-start+end)
-  (let-string-start+end (start end) string-upcase! s maybe-start+end
-    (%string-map! char-upcase s start end)))
+  (let-string-start+end (start end) #'string-upcase! s maybe-start+end
+    (%string-map! #'char-upcase s start end)))
 
 (define (string-downcase  s . maybe-start+end)
-  (let-string-start+end (start end) string-downcase s maybe-start+end
-    (%string-map char-downcase s start end)))
+  (let-string-start+end (start end) #'string-downcase s maybe-start+end
+    (%string-map #'char-downcase s start end)))
 
 (define (string-downcase! s . maybe-start+end)
-  (let-string-start+end (start end) string-downcase! s maybe-start+end
-    (%string-map! char-downcase s start end)))
+  (let-string-start+end (start end) #'string-downcase! s maybe-start+end
+    (%string-map! #'char-downcase s start end)))
 
-(define (%string-titlecase! s start end)
+#|(define (%string-titlecase! s start end)
   (let lp ((i start))
-    (cond ((string-index s char-cased? i end) =>
+    (cond ((string-index s #'char-cased? i end) =>
            (lambda (i)
 	     (string-set! s i (char-titlecase (string-ref s i)))
 	     (let ((i1 (+ i 1)))
@@ -945,17 +945,17 @@
 		      (lambda (j)
 			(string-downcase! s i1 j)
 			(lp (+ j 1))))
-		     (else (string-downcase! s i1 end)))))))))
+		     (else (string-downcase! s i1 end)))))))))|#
 
-(define (string-titlecase! s . maybe-start+end)
-  (let-string-start+end (start end) string-titlecase! s maybe-start+end
-    (%string-titlecase! s start end)))
+#|(define (string-titlecase! s . maybe-start+end)
+  (let-string-start+end (start end) #'string-titlecase! s maybe-start+end
+    (%string-titlecase! s start end)))|#
 
-(define (string-titlecase s . maybe-start+end)
+#|(define (string-titlecase s . maybe-start+end)
   (let-string-start+end (start end) string-titlecase! s maybe-start+end
     (let ((ans (substring s start end)))
       (%string-titlecase! ans 0 (- end start))
-      ans)))
+      ans)))|#
 
 
 ;;; Cutting & pasting strings
@@ -978,57 +978,57 @@
 
 (define (string-take s n)
   (check-arg string? s string-take)
-  (check-arg (lambda (val) (and (integer? n) (exact? n)
+  #|(check-arg (lambda (val) (and (integer? n) (exact? n)
 				(<= 0 n (string-length s))))
-	     n string-take)
+	     n string-take)|#
   (%substring/shared s 0 n))
 
 (define (string-take-right s n)
   (check-arg string? s string-take-right)
   (let ((len (string-length s)))
-    (check-arg (lambda (val) (and (integer? n) (exact? n) (<= 0 n len)))
-	       n string-take-right)
+    #|(check-arg (lambda (val) (and (integer? n) (exact? n) (<= 0 n len)))
+	       n string-take-right)|#
     (%substring/shared s (- len n) len)))
 
 (define (string-drop s n)
   (check-arg string? s string-drop)
   (let ((len (string-length s)))
-    (check-arg (lambda (val) (and (integer? n) (exact? n) (<= 0 n len)))
-	       n string-drop)
+    #|(check-arg (lambda (val) (and (integer? n) (exact? n) (<= 0 n len)))
+	       n string-drop)|#
   (%substring/shared s n len)))
 
 (define (string-drop-right s n)
   (check-arg string? s string-drop-right)
   (let ((len (string-length s)))
-    (check-arg (lambda (val) (and (integer? n) (exact? n) (<= 0 n len)))
-	       n string-drop-right)
+    #|(check-arg (lambda (val) (and (integer? n) (exact? n) (<= 0 n len)))
+	       n string-drop-right)|#
     (%substring/shared s 0 (- len n))))
 
 
-(define (string-trim s . criterion+start+end)
+#|(define (string-trim s . criterion+start+end)
   (let-optionals* criterion+start+end ((criterion char-set:whitespace) rest)
     (let-string-start+end (start end) string-trim s rest
       (cond ((string-skip s criterion start end) =>
 	     (lambda (i) (%substring/shared s i end)))
-	    (else "")))))
+	    (else "")))))|#
 
-(define (string-trim-right s . criterion+start+end)
+#|(define (string-trim-right s . criterion+start+end)
   (let-optionals* criterion+start+end ((criterion char-set:whitespace) rest)
     (let-string-start+end (start end) string-trim-right s rest
       (cond ((string-skip-right s criterion start end) =>
 	     (lambda (i) (%substring/shared s 0 (+ 1 i))))
-	    (else "")))))
+	    (else "")))))|#
 
-(define (string-trim-both s . criterion+start+end)
+#|(define (string-trim-both s . criterion+start+end)
   (let-optionals* criterion+start+end ((criterion char-set:whitespace) rest)
     (let-string-start+end (start end) string-trim-both s rest
       (cond ((string-skip s criterion start end) =>
 	     (lambda (i)
 	       (%substring/shared s i (+ 1 (string-skip-right s criterion i end)))))
-	    (else "")))))
+	    (else "")))))|#
 
 
-(define (string-pad-right s n . char+start+end)
+#|(define (string-pad-right s n . char+start+end)
   (let-optionals* char+start+end ((char #\space (char? char)) rest)
     (let-string-start+end (start end) string-pad-right s rest
       (check-arg (lambda (n) (and (integer? n) (exact? n) (<= 0 n)))
@@ -1038,9 +1038,9 @@
 	    (%substring/shared s start (+ start n))
 	    (let ((ans (make-string n char)))
 	      (%string-copy! ans 0 s start end)
-	      ans))))))
+	      ans))))))|#
 
-(define (string-pad s n . char+start+end)
+#|(define (string-pad s n . char+start+end)
   (let-optionals* char+start+end ((char #\space (char? char)) rest)
     (let-string-start+end (start end) string-pad s rest
       (check-arg (lambda (n) (and (integer? n) (exact? n) (<= 0 n)))
@@ -1050,7 +1050,7 @@
 	    (%substring/shared s (- end n) end)
 	    (let ((ans (make-string n char)))
 	      (%string-copy! ans (- n len) s start end)
-	      ans))))))
+	      ans))))))|#
 
 
 
@@ -1067,14 +1067,14 @@
 ;;;   compute. So we preallocate a temp buffer pessimistically, and only do
 ;;;   one scan over S. This is likely to be faster and more space-efficient
 ;;;   than consing a list.
-
+#|||
 (define (string-delete criterion s . maybe-start+end)
-  (let-string-start+end (start end) string-delete s maybe-start+end
+  (let-string-start+end (start end) #'string-delete s maybe-start+end
     (if (procedure? criterion)
 	(let* ((slen (- end start))
 	       (temp (make-string slen))
 	       (ans-len (string-fold (lambda (c i)
-				       (if (criterion c) i
+				       (if (funcall criterion c) i
 					   (begin (string-set! temp i c)
 						  (+ i 1))))
 				     0 s start end)))
@@ -1096,7 +1096,7 @@
 	  ans))))
 
 (define (string-filter criterion s . maybe-start+end)
-  (let-string-start+end (start end) string-filter s maybe-start+end
+  (let-string-start+end (start end) #'string-filter s maybe-start+end
     (if (procedure? criterion)
 	(let* ((slen (- end start))
 	       (temp (make-string slen))
