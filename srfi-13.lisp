@@ -1005,12 +1005,16 @@
     (%substring/shared s 0 (- len n))))
 
 
-#|(define (string-trim s . criterion+start+end)
-  (let-optionals* criterion+start+end ((criterion char-set:whitespace) rest)
-    (let-string-start+end (start end) string-trim s rest
-      (cond ((string-skip s criterion start end) =>
-	     (lambda (i) (%substring/shared s i end)))
-	    (else "")))))|#
+#|(defun string-trim (s &optional
+                     criterion
+                     (start 0)
+                     (end (length s)))
+;  (let-optionals* criterion+start+end ((criterion char-set:whitespace) rest)
+  (let-string-start+end (start end) #'string-trim s (list criterion start end)
+    (srfi-61:cond
+      ((string-skip s criterion start end) :=>
+       (lambda (i) (%substring/shared s i end)))
+      (:else ""))))|#
 
 #|(define (string-trim-right s . criterion+start+end)
   (let-optionals* criterion+start+end ((criterion char-set:whitespace) rest)
@@ -1067,8 +1071,8 @@
 ;;;   compute. So we preallocate a temp buffer pessimistically, and only do
 ;;;   one scan over S. This is likely to be faster and more space-efficient
 ;;;   than consing a list.
-#|||
-(define (string-delete criterion s . maybe-start+end)
+
+#|(define (string-delete criterion s . maybe-start+end)
   (let-string-start+end (start end) #'string-delete s maybe-start+end
     (if (procedure? criterion)
 	(let* ((slen (- end start))
@@ -1093,9 +1097,9 @@
 					 (begin (string-set! ans i c)
 						(+ i 1))))
 		       0 s start end)
-	  ans))))
+	  ans))))|#
 
-(define (string-filter criterion s . maybe-start+end)
+#|(define (string-filter criterion s . maybe-start+end)
   (let-string-start+end (start end) #'string-filter s maybe-start+end
     (if (procedure? criterion)
 	(let* ((slen (- end start))
@@ -1122,7 +1126,7 @@
 						(+ i 1))
 					 i))
 		       0 s start end)
-	  ans))))
+	  ans))))|#
 
 
 ;;; String search
@@ -1136,7 +1140,7 @@
 ;;;     For example, the char/char-set/pred discrimination has
 ;;;     been lifted above the inner loop of each proc.
 
-(define (string-index str criterion . maybe-start+end)
+#|(define (string-index str criterion . maybe-start+end)
   (let-string-start+end (start end) string-index str maybe-start+end
     (cond ((char? criterion)
 	   (let lp ((i start))
@@ -1154,9 +1158,9 @@
 		  (if (criterion (string-ref str i)) i
 		      (lp (+ i 1))))))
 	  (else (error "Second param is neither char-set, char, or predicate procedure."
-		       string-index criterion)))))
+		       string-index criterion)))))|#
 
-(define (string-index-right str criterion . maybe-start+end)
+#|(define (string-index-right str criterion . maybe-start+end)
   (let-string-start+end (start end) string-index-right str maybe-start+end
     (cond ((char? criterion)
 	   (let lp ((i (- end 1)))
@@ -1174,9 +1178,9 @@
 		  (if (criterion (string-ref str i)) i
 		      (lp (- i 1))))))
 	  (else (error "Second param is neither char-set, char, or predicate procedure."
-		       string-index-right criterion)))))
+		       string-index-right criterion)))))|#
 
-(define (string-skip str criterion . maybe-start+end)
+#|(define (string-skip str criterion . maybe-start+end)
   (let-string-start+end (start end) string-skip str maybe-start+end
     (cond ((char? criterion)
 	   (let lp ((i start))
@@ -1196,9 +1200,9 @@
 		  (if (criterion (string-ref str i)) (lp (+ i 1))
 		      i))))
 	  (else (error "Second param is neither char-set, char, or predicate procedure."
-		       string-skip criterion)))))
+		       string-skip criterion)))))|#
 
-(define (string-skip-right str criterion . maybe-start+end)
+#|(define (string-skip-right str criterion . maybe-start+end)
   (let-string-start+end (start end) string-skip-right str maybe-start+end
     (cond ((char? criterion)
 	   (let lp ((i (- end 1)))
@@ -1218,10 +1222,10 @@
 		  (if (criterion (string-ref str i)) (lp (- i 1))
 		      i))))
 	  (else (error "CRITERION param is neither char-set or char."
-		       string-skip-right criterion)))))
+		       string-skip-right criterion)))))|#
 
 
-(define (string-count s criterion . maybe-start+end)
+#|(define (string-count s criterion . maybe-start+end)
   (let-string-start+end (start end) string-count s maybe-start+end
     (cond ((char? criterion)
 	   (do ((i start (+ i 1))
@@ -1239,11 +1243,11 @@
 
 	  ((procedure? criterion)
 	   (do ((i start (+ i 1))
-		(count 0 (if (criterion (string-ref s i)) (+ count 1) count)))
+		(count 0 (if (fncall criterion (string-ref s i)) (+ count 1) count)))
 	       ((>= i end) count)))
 
-	  (else (error "CRITERION param is neither char-set or char."
-		       string-count criterion)))))
+	  (:else (srfi-23:error "CRITERION param is neither char-set or char."
+                                'string-count criterion)))))|#
 
 
 
@@ -1255,15 +1259,15 @@
 
 (define (string-fill! s char . maybe-start+end)
   (check-arg char? char string-fill!)
-  (let-string-start+end (start end) string-fill! s maybe-start+end
+  (let-string-start+end (start end) #'string-fill! s maybe-start+end
     (do ((i (- end 1) (- i 1)))
 	((< i start))
       (string-set! s i char))))
 
 (define (string-copy! to tstart from . maybe-fstart+fend)
-  (let-string-start+end (fstart fend) string-copy! from maybe-fstart+fend
-    (check-arg integer? tstart string-copy!)
-    (check-substring-spec string-copy! to tstart (+ tstart (- fend fstart)))
+  (let-string-start+end (fstart fend) #'string-copy! from maybe-fstart+fend
+    #|(check-arg integer? tstart string-copy!)|#
+    #|(check-substring-spec string-copy! to tstart (+ tstart (- fend fstart)))|#
     (%string-copy! to tstart from fstart fend)))
 
 ;;; Library-internal routine
@@ -1303,12 +1307,12 @@
 
 (define (string-contains text pattern . maybe-starts+ends)
   (let-string-start+end2 (t-start t-end p-start p-end)
-                         string-contains text pattern maybe-starts+ends
+                         #'string-contains text pattern maybe-starts+ends
     (%kmp-search pattern text char=? p-start p-end t-start t-end)))
 
 (define (string-contains-ci text pattern . maybe-starts+ends)
   (let-string-start+end2 (t-start t-end p-start p-end)
-                         string-contains-ci text pattern maybe-starts+ends
+                         #'string-contains-ci text pattern maybe-starts+ends
     (%kmp-search pattern text char-ci=? p-start p-end t-start t-end)))
 
 
@@ -1334,21 +1338,21 @@
 	(rv (make-kmp-restart-vector pattern c= p-start p-end)))
 
     ;; The search loop. TJ & PJ are redundant state.
-    (let lp ((ti t-start) (pi 0)
+    (let lp ((ti t-start) (|pi| 0)
 	     (tj (- t-end t-start)) ; (- tlen ti) -- how many chars left.
-	     (pj plen))		 ; (- plen pi) -- how many chars left.
+	     (pj plen))		 ; (- plen |pi|) -- how many chars left.
 
-      (if (= pi plen)
+      (if (= |pi| plen)
 	  (- ti plen)			; Win.
 	  (and (<= pj tj)		; Lose.
-	       (if (c= (string-ref text ti) ; Search.
-		       (string-ref pattern (+ p-start pi)))
-		   (lp (+ 1 ti) (+ 1 pi) (- tj 1) (- pj 1)) ; Advance.
+	       (if (funcall c= (string-ref text ti) ; Search.
+		       (string-ref pattern (+ p-start |pi|)))
+		   (lp (+ 1 ti) (+ 1 |pi|) (- tj 1) (- pj 1)) ; Advance.
 
-		   (let ((pi (vector-ref rv pi))) ; Retreat.
-		     (if (= pi -1)
+		   (let ((|pi| (aref rv |pi|))) ; Retreat.
+		     (if (= |pi| -1)
 			 (lp (+ ti 1) 0  (- tj 1) plen) ; Punt.
-			 (lp ti       pi tj       (- plen pi))))))))))
+			 (lp ti       |pi| tj       (- plen |pi|))))))))))
 
 ;;; (make-kmp-restart-vector pattern [c= start end]) -> integer-vector
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1378,40 +1382,39 @@
 ;;;    a b d  a b x
 ;;; #(-1 0 0 -1 1 2)
 
-(define (make-kmp-restart-vector pattern . maybe-c=+start+end)
-  (let-optionals* maybe-c=+start+end
-                  ((c= char=? (procedure? c=))
-		   ((start end) (lambda (args)
-				  (string-parse-start+end make-kmp-restart-vector
-							  pattern args))))
-    (let* ((rvlen (- end start))
-	   (rv (make-vector rvlen -1)))
-      (if (> rvlen 0)
-	  (let ((rvlen-1 (- rvlen 1))
-		(c0 (string-ref pattern start)))
+(defun make-kmp-restart-vector (pattern &optional (c= #'char=?)
+                                        (start 0)
+                                        (end (length pattern)))
+  (let* ((rvlen (- end start))
+         (rv (make-array rvlen :initial-element -1)))
+    (if (> rvlen 0)
+        (let ((rvlen-1 (- rvlen 1))
+              (c0 (string-ref pattern start)))
 
-	    ;; Here's the main loop. We have set rv[0] ... rv[i].
-	    ;; K = I + START -- it is the corresponding index into PATTERN.
-	    (let lp1 ((i 0) (j -1) (k start))
-	      (if (< i rvlen-1)
-		  ;; lp2 invariant:
-		  ;;   pat[(k-j) .. k-1] matches pat[start .. start+j-1]
-		  ;;   or j = -1.
-		  (let lp2 ((j j))
-		    (cond ((= j -1)
-			   (let ((i1 (+ 1 i)))
-			     (if (not (c= (string-ref pattern (+ k 1)) c0))
-				 (vector-set! rv i1 0))
-			     (lp1 i1 0 (+ k 1))))
-			  ;; pat[(k-j) .. k] matches pat[start..start+j].
-			  ((c= (string-ref pattern k) (string-ref pattern (+ j start)))
-			   (let* ((i1 (+ 1 i))
-				  (j1 (+ 1 j)))
-			     (vector-set! rv i1 j1)
-			     (lp1 i1 j1 (+ k 1))))
+          ;; Here's the main loop. We have set rv[0] ... rv[i].
+          ;; K = I + START -- it is the corresponding index into PATTERN.
+          (let lp1 ((i 0) (j -1) (k start))
+               (if (< i rvlen-1)
+                   ;; lp2 invariant:
+                   ;;   pat[(k-j) .. k-1] matches pat[start .. start+j-1]
+                   ;;   or j = -1.
+                   (let lp2 ((j j))
+                        (cond ((= j -1)
+                               (let ((i1 (+ 1 i)))
+                                 (if (not (funcall c= (char pattern (+ k 1)) c0))
+                                     (setf (aref rv i1) 0))
+                                 (lp1 i1 0 (+ k 1))))
+                              ;; pat[(k-j) .. k] matches pat[start..start+j].
+                              ((funcall c=
+                                        (char pattern k)
+                                        (string-ref pattern (+ j start)))
+                               (let* ((i1 (+ 1 i))
+                                      (j1 (+ 1 j)))
+                                 (setf (aref rv i1) j1)
+                                 (lp1 i1 j1 (+ k 1))))
 
-			  (else (lp2 (vector-ref rv j)))))))))
-      rv)))
+                              (:else (lp2 (aref rv j)))))))))
+    rv))
 
 
 ;;; We've matched I chars from PAT. C is the next char from the search string.
@@ -1428,9 +1431,9 @@
 
 (define (kmp-step pat rv c i c= p-start)
   (let lp ((i i))
-    (if (c= c (string-ref pat (+ i p-start)))	; Match =>
+    (if (funcall c= c (string-ref pat (+ i p-start)))	; Match =>
 	(+ i 1)					;   Done.
-	(let ((i (vector-ref rv i)))		; Back up in PAT.
+	(let ((i (aref rv i)))		; Back up in PAT.
 	  (if (= i -1) 0			; Can't back up further.
 	      (lp i))))))			; Keep trying for match.
 
@@ -1445,32 +1448,31 @@
 ;;; input comes in chunks of text. We hand-integrate the KMP-STEP loop
 ;;; for speed.
 
-(define (string-kmp-partial-search pat rv s i . c=+p-start+s-start+s-end)
-  (check-arg vector? rv string-kmp-partial-search)
-  (let-optionals* c=+p-start+s-start+s-end
-		  ((c=      char=? (procedure? c=))
-		   (p-start 0 (and (integer? p-start) (exact? p-start) (<= 0 p-start)))
-		   ((s-start s-end) (lambda (args)
-				      (string-parse-start+end string-kmp-partial-search
-							      s args))))
-    (let ((patlen (vector-length rv)))
-      (check-arg (lambda (i) (and (integer? i) (exact? i) (<= 0 i) (< i patlen)))
-		 i string-kmp-partial-search)
+(defun string-kmp-partial-search (pat rv s i
+                                      &optional
+                                      (c= #'char=?)
+                                      (p-start 0)
+                                      (s-start 0)
+                                      (s-end (length pat)))
+  (declare (vector rv))
+  (let ((patlen (length rv)))
+    #|(check-arg (lambda (i) (and (integer? i) (exact? i) (<= 0 i) (< i patlen)))
+    i string-kmp-partial-search)|#
 
-      ;; Enough prelude. Here's the actual code.
-      (let lp ((si s-start)		; An index into S.
-	       (vi i))			; An index into RV.
-	(cond ((= vi patlen) (- si))	; Win.
-	      ((= si s-end) vi)		; Ran off the end.
-	      (else			; Match s[si] & loop.
-	       (let ((c (string-ref s si)))
-		 (lp (+ si 1)
-		     (let lp2 ((vi vi))	; This is just KMP-STEP.
-		       (if (c= c (string-ref pat (+ vi p-start)))
-			   (+ vi 1)
-			   (let ((vi (vector-ref rv vi)))
-			     (if (= vi -1) 0
-				 (lp2 vi)))))))))))))
+    ;; Enough prelude. Here's the actual code.
+    (let lp ((si s-start)		; An index into S.
+             (vi i))			; An index into RV.
+         (cond ((= vi patlen) (- si))	; Win.
+               ((= si s-end) vi)		; Ran off the end.
+               (:else			; Match s[si] & loop.
+                (let ((c (string-ref s si)))
+                  (lp (+ si 1)
+                      (let lp2 ((vi vi))	; This is just KMP-STEP.
+                           (if (funcall c= c (string-ref pat (+ vi p-start)))
+                               (+ vi 1)
+                               (let ((vi (aref rv vi)))
+                                 (if (= vi -1) 0
+                                     (lp2 vi))))))))))))
 
 
 ;;; Misc
@@ -1484,7 +1486,7 @@
 (define (string-null? s) (zero? (string-length s)))
 
 (define (string-reverse s . maybe-start+end)
-  (let-string-start+end (start end) string-reverse s maybe-start+end
+  (let-string-start+end (start end) #'string-reverse s maybe-start+end
     (let* ((len (- end start))
 	   (ans (make-string len)))
       (do ((i start (+ i 1))
@@ -1494,7 +1496,7 @@
       ans)))
 
 (define (string-reverse! s . maybe-start+end)
-  (let-string-start+end (start end) string-reverse! s maybe-start+end
+  (let-string-start+end (start end) #'string-reverse! s maybe-start+end
     (do ((i (- end 1) (- i 1))
 	 (j start (+ j 1)))
 	((<= i j))
@@ -1516,14 +1518,13 @@
 ;  (apply string-fold-right cons '() s maybe-start+end))
 
 (define (string->list s . maybe-start+end)
-  (let-string-start+end (start end) string->list s maybe-start+end
+  (let-string-start+end (start end) #'string->list s maybe-start+end
     (do ((i (- end 1) (- i 1))
-	 (ans '() (cons (string-ref s i) ans)))
+	 (ans '() (cons (char s i) ans)))
 	((< i start) ans))))
 
 ;;; Defined by R5RS, so commented out here.
 ;(define (list->string lis) (string-unfold null? car cdr lis))
-
 
 ;;; string-concatenate        string-list -> string
 ;;; string-concatenate/shared string-list -> string
@@ -1544,7 +1545,7 @@
 (define (string-append/shared . strings) (string-concatenate/shared strings))
 
 (define (string-concatenate/shared strings)
-  (let lp ((strings strings) (nchars 0) (first #f))
+  (let lp ((strings strings) (nchars 0) (first nil))
     (cond ((pair? strings)			; Scan the args, add up total
 	   (let* ((string  (car strings))	; length, remember 1st
 		  (tail (cdr strings))		; non-empty string.
@@ -1558,7 +1559,7 @@
 	  ;; Just one non-empty string! Return it.
 	  ((= nchars (string-length (car first))) (car first))
 
-	  (else (let ((ans (make-string nchars)))
+	  (:else (let ((ans (make-string nchars)))
 		  (let lp ((strings first) (i 0))
 		    (if (pair? strings)
 			(let* ((s (car strings))
@@ -1598,43 +1599,38 @@
 ;;;     (reverse
 ;;;       (cons (substring final-string 0 end) string-list)))
 
-(define (string-concatenate-reverse string-list . maybe-final+end)
-  (let-optionals* maybe-final+end ((final "" (string? final))
-				   (end (string-length final)
-					(and (integer? end)
-					     (exact? end)
-					     (<= 0 end (string-length final)))))
-    (let ((len (let lp ((sum 0) (lis string-list))
-		 (if (pair? lis)
-		     (lp (+ sum (string-length (car lis))) (cdr lis))
-		     sum))))
+(defun string-concatenate-reverse (string-list &optional
+                                               (final "")
+                                               (end))
+  (let ((len (let lp ((sum 0) (lis string-list))
+                  (if (pair? lis)
+                      (lp (+ sum (string-length (car lis))) (cdr lis))
+                      sum))))
+    (%finish-string-concatenate-reverse len string-list final end)))
 
-      (%finish-string-concatenate-reverse len string-list final end))))
+(defun string-concatenate-reverse/shared (string-list
+                                          &optional
+                                          (final "")
+                                          (end (length string-list)))
+  ;; Add up the lengths of all the strings in STRING-LIST; also get a
+  ;; pointer NZLIST into STRING-LIST showing where the first non-zero-length
+  ;; string starts.
+  (let lp ((len 0) (nzlist nil) (lis string-list))
+       (if (pair? lis)
+           (let ((slen (string-length (car lis))))
+             (lp (+ len slen)
+                 (if (or nzlist (zero? slen)) nzlist lis)
+                 (cdr lis)))
 
-(define (string-concatenate-reverse/shared string-list . maybe-final+end)
-  (let-optionals* maybe-final+end ((final "" (string? final))
-				   (end (string-length final)
-					(and (integer? end)
-					     (exact? end)
-					     (<= 0 end (string-length final)))))
-    ;; Add up the lengths of all the strings in STRING-LIST; also get a
-    ;; pointer NZLIST into STRING-LIST showing where the first non-zero-length
-    ;; string starts.
-    (let lp ((len 0) (nzlist #f) (lis string-list))
-      (if (pair? lis)
-	  (let ((slen (string-length (car lis))))
-	    (lp (+ len slen)
-		(if (or nzlist (zero? slen)) nzlist lis)
-		(cdr lis)))
+           (cond ((zero? len) (substring/shared final 0 end))
 
-	  (cond ((zero? len) (substring/shared final 0 end))
+                 ;; LEN > 0, so NZLIST is non-empty.
 
-		;; LEN > 0, so NZLIST is non-empty.
+                 ((and (zero? end) (= len (string-length (car nzlist))))
+                  (car nzlist))
 
-		((and (zero? end) (= len (string-length (car nzlist))))
-		 (car nzlist))
-
-		(else (%finish-string-concatenate-reverse len nzlist final end)))))))
+                 (:else
+                  (%finish-string-concatenate-reverse len nzlist final end))))))
 
 (define (%finish-string-concatenate-reverse len string-list final end)
   (let ((ans (make-string (+ end len))))
@@ -1649,16 +1645,13 @@
 	    (lp i lis))))
     ans))
 
-
-
-
 ;;; string-replace s1 s2 start1 end1 [start2 end2] -> string
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Replace S1[START1,END1) with S2[START2,END2).
 
 (define (string-replace s1 s2 start1 end1 . maybe-start+end)
-  (check-substring-spec string-replace s1 start1 end1)
-  (let-string-start+end (start2 end2) string-replace s2 maybe-start+end
+  #|(check-substring-spec string-replace s1 start1 end1)|#
+  (let-string-start+end (start2 end2) #'string-replace s2 maybe-start+end
     (let* ((slen1 (string-length s1))
 	   (sublen2 (- end2 start2))
 	   (alen (+ (- slen1 (- end1 start1)) sublen2))
@@ -1675,21 +1668,23 @@
 ;;; non-empty contiguous sequence of chars belonging to TOKEN-SET.
 ;;; (string-tokenize "hello, world") => ("hello," "world")
 
-(define (string-tokenize s . token-chars+start+end)
-  (let-optionals* token-chars+start+end
-                  ((token-chars char-set:graphic (char-set? token-chars)) rest)
-    (let-string-start+end (start end) string-tokenize s rest
-      (let lp ((i end) (ans '()))
-	(cond ((and (< start i) (string-index-right s token-chars start i)) =>
-	       (lambda (tend-1)
-		 (let ((tend (+ 1 tend-1)))
-		   (cond ((string-skip-right s token-chars start tend-1) =>
-			  (lambda (tstart-1)
-			    (lp tstart-1
-				(cons (substring s (+ 1 tstart-1) tend)
-				      ans))))
-			 (else (cons (substring s start tend) ans))))))
-	      (else ans))))))
+(defun string-tokenize (s &optional
+                          token-chars
+                          start
+                          end
+                          &rest rest)
+  (let-string-start+end (start end) #'string-tokenize s rest
+    (let lp ((i end) (ans '()))
+       (srfi-61:cond ((and (< start i) (string-index-right s token-chars start i)) :=>
+              (lambda (tend-1)
+                (let ((tend (+ 1 tend-1)))
+                  (srfi-61:cond ((string-skip-right s token-chars start tend-1) :=>
+                         (lambda (tstart-1)
+                           (lp tstart-1
+                               (cons (substring s (+ 1 tstart-1) tend)
+                                     ans))))
+                        (else (cons (substring s start tend) ans))))))
+             (:else ans)))))
 
 
 ;;; xsubstring s from [to start end] -> string
@@ -1720,37 +1715,37 @@
 ;;; dispensation when FROM=TO.
 
 (define (xsubstring s from . maybe-to+start+end)
-  (check-arg (lambda (val) (and (integer? val) (exact? val)))
-	     from xsubstring)
+  #|(check-arg (lambda (val) (and (integer? val) (exact? val)))
+	     from xsubstring)|#
   (receive (to start end)
            (if (pair? maybe-to+start+end)
-	       (let-string-start+end (start end) xsubstring s (cdr maybe-to+start+end)
-		 (let ((to (car maybe-to+start+end)))
-		   (check-arg (lambda (val) (and (integer? val)
+	       (let-string-start+end (start end) #'xsubstring s (cdr maybe-to+start+end)
+                  (let ((to (car maybe-to+start+end)))
+		   #|(check-arg (lambda (val) (and (integer? val)
 						 (exact? val)
 						 (<= from val)))
-			      to xsubstring)
+			      to xsubstring)|#
 		   (values to start end)))
-	       (let ((slen (string-length (check-arg string? s xsubstring))))
+	       (let ((slen (string-length s)))
 		 (values (+ from slen) 0 slen)))
     (let ((slen   (- end start))
 	  (anslen (- to  from)))
       (cond ((zero? anslen) "")
-	    ((zero? slen) (error "Cannot replicate empty (sub)string"
-				  xsubstring s from to start end))
+	    ((zero? slen) (srfi-23:error "Cannot replicate empty (sub)string"
+                                         'xsubstring s from to start end))
 
 	    ((= 1 slen)		; Fast path for 1-char replication.
-	     (make-string anslen (string-ref s start)))
+	     (cl:make-string anslen :initial-element (char s start)))
 
 	    ;; Selected text falls entirely within one span.
 	    ((= (floor (/ from slen)) (floor (/ to slen)))
-	     (substring s (+ start (modulo from slen))
-			  (+ start (modulo to   slen))))
+	     (substring s (+ start (mod from slen))
+			  (+ start (mod to   slen))))
 
 	    ;; Selected text requires multiple spans.
-	    (else (let ((ans (make-string anslen)))
-		    (%multispan-repcopy! ans 0 s from to start end)
-		    ans))))))
+	    (:else (let ((ans (make-string anslen)))
+                     (%multispan-repcopy! ans 0 s from to start end)
+                     ans))))))
 
 
 ;;; string-xcopy! target tstart s sfrom [sto start end] -> unspecific
@@ -1761,14 +1756,14 @@
 ;;; a string on top of itself.
 
 (define (string-xcopy! target tstart s sfrom . maybe-sto+start+end)
-  (check-arg (lambda (val) (and (integer? val) (exact? val)))
-	     sfrom string-xcopy!)
+  #|(check-arg (lambda (val) (and (integer? val) (exact? val)))
+	     sfrom string-xcopy!)|#
   (receive (sto start end)
            (if (pair? maybe-sto+start+end)
-	       (let-string-start+end (start end) string-xcopy! s (cdr maybe-sto+start+end)
+	       (let-string-start+end (start end) #'string-xcopy! s (cdr maybe-sto+start+end)
 		 (let ((sto (car maybe-sto+start+end)))
-		   (check-arg (lambda (val) (and (integer? val) (exact? val)))
-			      sto string-xcopy!)
+		   #|(check-arg (lambda (val) (and (integer? val) (exact? val)))
+			      sto string-xcopy!)|#
 		   (values sto start end)))
 	       (let ((slen (string-length s)))
 		 (values (+ sfrom slen) 0 slen)))
@@ -1776,10 +1771,10 @@
     (let* ((tocopy (- sto sfrom))
 	   (tend (+ tstart tocopy))
 	   (slen (- end start)))
-      (check-substring-spec string-xcopy! target tstart tend)
+      #|(check-substring-spec string-xcopy! target tstart tend)|#
       (cond ((zero? tocopy))
 	    ((zero? slen) (error "Cannot replicate empty (sub)string"
-				 string-xcopy!
+				 'string-xcopy!
 				 target tstart s sfrom sto start end))
 
 	    ((= 1 slen)			; Fast path for 1-char replication.
@@ -1788,17 +1783,17 @@
 	    ;; Selected text falls entirely within one span.
 	    ((= (floor (/ sfrom slen)) (floor (/ sto slen)))
 	     (%string-copy! target tstart s
-			    (+ start (modulo sfrom slen))
-			    (+ start (modulo sto   slen))))
+			    (+ start (mod sfrom slen))
+			    (+ start (mod sto   slen))))
 
 	    ;; Multi-span copy.
-	    (else (%multispan-repcopy! target tstart s sfrom sto start end))))))
+	    (:else (%multispan-repcopy! target tstart s sfrom sto start end))))))
 
 ;;; This is the core copying loop for XSUBSTRING and STRING-XCOPY!
 ;;; Internal -- not exported, no careful arg checking.
 (define (%multispan-repcopy! target tstart s sfrom sto start end)
   (let* ((slen (- end start))
-	 (i0 (+ start (modulo sfrom slen)))
+	 (i0 (+ start (mod sfrom slen)))
 	 (total-chars (- sto sfrom)))
 
     ;; Copy the partial span @ the beginning
@@ -1806,7 +1801,7 @@
 
     (let* ((ncopied (- end i0))			; We've copied this many.
 	   (nleft (- total-chars ncopied))	; # chars left to copy.
-	   (nspans (quotient nleft slen)))	; # whole spans to copy
+	   (nspans (floor nleft slen)))	; # whole spans to copy
 
       ;; Copy the whole spans in the middle.
       (do ((i (+ tstart ncopied) (+ i slen))	; Current target index.
@@ -1819,6 +1814,8 @@
 
 
 
+
+
 ;;; (string-join string-list [delimiter grammar]) => string
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Paste strings together using the delimiter string.
@@ -1833,40 +1830,40 @@
 ;;; answer string, then allocate & fill it in iteratively. Using
 ;;; STRING-CONCATENATE is less efficient.
 
-(define (string-join strings . delim+grammar)
-  (let-optionals* delim+grammar ((delim " " (string? delim))
-				 (grammar 'infix))
-    (let ((buildit (lambda (lis final)
-		     (let recur ((lis lis))
-		       (if (pair? lis)
-			   (cons delim (cons (car lis) (recur (cdr lis))))
-			   final)))))
+(define (string-join strings
+                     &optional
+                     (delim " ")
+                     (grammar 'infix))
+  (let ((buildit (lambda (lis final)
+                   (let recur ((lis lis))
+                        (if (pair? lis)
+                            (cons delim (cons (car lis) (recur (cdr lis))))
+                            final)))))
+    (cond ((pair? strings)
+           (string-concatenate
+            (case grammar
 
-      (cond ((pair? strings)
-	     (string-concatenate
-	      (case grammar
+              ((infix strict-infix)
+		 (cons (car strings) (funcall buildit (cdr strings) '())))
 
-		((infix strict-infix)
-		 (cons (car strings) (buildit (cdr strings) '())))
+              ((prefix) (funcall buildit strings '()))
 
-		((prefix) (buildit strings '()))
+              ((suffix)
+		 (cons (car strings) (funcall buildit (cdr strings) (list delim))))
 
-		((suffix)
-		 (cons (car strings) (buildit (cdr strings) (list delim))))
+              (otherwise (srfi-23:error "Illegal join grammar"
+                                        grammar 'string-join)))))
 
-		(else (error "Illegal join grammar"
-			     grammar string-join)))))
+          ((not (null? strings))
+           (error "STRINGS parameter not list." strings 'string-join))
 
-	     ((not (null? strings))
-	      (error "STRINGS parameter not list." strings string-join))
+          ;; STRINGS is ()
 
-	     ;; STRINGS is ()
+          ((eq? grammar 'strict-infix)
+           (error "Empty list cannot be joined with STRICT-INFIX grammar."
+                  'string-join))
 
-	     ((eq? grammar 'strict-infix)
-	      (error "Empty list cannot be joined with STRICT-INFIX grammar."
-		     string-join))
-
-	     (else "")))))		; Special-cased for infix grammar.
+          (:else ""))))		; Special-cased for infix grammar.
 
 
 ;;; Porting & performance-tuning notes
@@ -2018,4 +2015,4 @@
 ;;; THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 ;;; (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 ;;; THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-|||#
+
