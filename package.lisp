@@ -46,7 +46,7 @@
    :string :string-append :list->string))
 
 (defpackage :srfi-13-internal
-  (:use :cl :srfi-8 :fiveam :mbe)
+  (:use :cl :srfi-8 :fiveam :mbe :srfi-14)
   (:shadowing-import-from :srfi-5 :let)
   (:shadowing-import-from :srfi-13 . #.(let (ans)
                                          (do-external-symbols (s :srfi-13)

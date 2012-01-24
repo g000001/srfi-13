@@ -41,6 +41,21 @@
 (defun-inline memq (x list)
   (cl:member x list :test #'eq))
 
+(defun-inline modulo (number divisor)
+  (mod number divisor))
+
+(defun-inline char->integer (char)
+  (cl:char-code char))
+
+(defun-inline bitwise-and  (&rest integers)
+  (apply #'logand integers))
+
+#|(defun-inline char=? (a b)
+  (cl:char= a b))|#
+
+#|(defun-inline char-ci=? (a b)
+  (cl:char-equal a b))|#
+
 (defmacro begin (&body body)
   `(progn ,@body))
 
@@ -100,8 +115,8 @@
   (declare (simple-string  str))
   (subseq str start end))
 
-(defun make-string (len)
-  (cl:make-string len))
+(defun make-string (len &optional (init #\Nul))
+  (cl:make-string len :initial-element init))
 
 (defun string-set! (string k char)
   (declare (optimize (safety 3) (speed 3)))
@@ -125,3 +140,63 @@
 (defconstant* eq? #'cl:eq)
 (defconstant* eqv? #'cl:eql)
 (defconstant* pair? #'cl:consp)
+
+(defun butlastatom (list)
+  `(,@(butlast list)
+      ,(car (last list))))
+
+;;; FIXME
+(defmacro let-optionals* (args (&rest binds) &body body)
+  (let ((rest (if (tailp '() binds)
+                  '()
+                  `(&rest ,(cdr (last binds))) )))
+    (cl:loop
+       :for (var . val+pred) :in (mapcar (lambda (x)
+                                           (if (consp x)
+                                               x
+                                               (list x) ))
+                                         (if rest
+                                             (butlastatom binds)
+                                             binds) )
+       :for k :from 0
+       :collect (if (cdr val+pred)
+                    `(,var (or (and ,(nth 1 val+pred) ,var) ,(nth 0 val+pred)))
+                    `(,var (or (nth ,k ,args) ,(nth 0 val+pred))) )
+       :into var+default
+       :collect var :into new-binds
+       :finally (return
+                  `(destructuring-bind (&optional ,@new-binds ,@rest)
+                                       ,args
+                     (declare (ignorable ,@new-binds))
+                     (let* (,@var+default)
+                       ,@body ))))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun to-proper-lambda-list (list)
+    (typecase list
+      (list (if (tailp () list)
+                list
+              (cl:let ((last (last list)))
+                `(,@(butlast list)
+                  ,(car last)
+                  cl:&rest
+                  ,(cdr last)))))
+      (symbol `(cl:&rest ,list)))))
+
+(defmacro define-function (name-args &body body)
+  (if (consp name-args)
+      (destructuring-bind (name . args)
+                          name-args
+        `(defun ,name ,(to-proper-lambda-list args)
+           ,@body))
+      `(progn
+         (setf (fdefinition ',name-args)
+               ,(car body)))))
+
+
+(defmacro check-arg (pred val caller)
+  (let ((gval (gensym)))
+    `(let ((,gval ,val))
+       (if (not (,pred ,val))
+           (error ,gval '(function ,caller))
+           ,gval))))

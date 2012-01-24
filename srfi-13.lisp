@@ -2,10 +2,6 @@
 
 (cl:in-package :srfi-13-internal)
 
-(def-suite srfi-13)
-
-(in-suite srfi-13)
-
 ;;; SRFI 13 string library reference implementation
 ;;; Olin Shivers 7/2000
 ;;;
@@ -147,7 +143,7 @@
 
 ;;; Returns three values: rest start end
 
-(define (string-parse-start+end proc s args)
+(define-function (string-parse-start+end proc s args)
   (if (not (string? s)) (error "Non-string value" proc s))
   (let ((slen (string-length s)))
     (if (pair? args)
@@ -170,12 +166,12 @@
 
 	(values '() 0 slen))))
 
-(define (string-parse-final-start+end proc s args)
+(define-function (string-parse-final-start+end proc s args)
   (receive (rest start end) (string-parse-start+end proc s args)
     (if (pair? rest) (error "Extra arguments to procedure" proc rest)
 	(values start end))))
 
-(define (substring-spec-ok? s start end)
+(define-function (substring-spec-ok? s start end)
   (and (string? s)
        (integer? start)
        (exact? start)
@@ -185,21 +181,21 @@
        (<= start end)
        (<= end (string-length s))))
 
-(define (check-substring-spec proc s start end)
+(define-function (check-substring-spec proc s start end)
   (if (not (substring-spec-ok? s start end))
       (error "Illegal substring spec." proc s start end)))
 
 
 ;;; Defined by R5RS, so commented out here.
-;(define (string . chars)
-;  (let* ((len (length chars))
-;         (ans (make-string len)))
-;    (do ((i 0 (+ i 1))
-;	 (chars chars (cdr chars)))
-;	((>= i len))
-;      (string-set! ans i (car chars)))
-;    ans))
-;
+(define-function (string . chars)
+  (let* ((len (length chars))
+         (ans (make-string len)))
+    (do ((i 0 (+ i 1))
+	 (chars chars (cdr chars)))
+	((>= i len))
+      (string-set! ans i (car chars)))
+    ans))
+
 ;(define (string . chars) (string-unfold null? car cdr chars))
 
 
@@ -223,11 +219,11 @@
 
 ;;; Split out so that other routines in this library can avoid arg-parsing
 ;;; overhead for END parameter.
-(define (%substring/shared s start end)
+(define-function (%substring/shared s start end)
   (if (and (zero? start) (= end (string-length s))) s
       (substring s start end)))
 
-(define (string-copy s . maybe-start+end)
+(define-function (string-copy s . maybe-start+end)
   (let-string-start+end (start end) #'string-copy s maybe-start+end
     (substring s start end)))
 
@@ -259,12 +255,12 @@
 ;;; You'd at least like a lot of inlining for clients of these procedures.
 ;;; Don't hold your breath.
 
-(define (string-map proc s . maybe-start+end)
+(define-function (string-map proc s . maybe-start+end)
   (check-arg procedure? proc string-map)
   (let-string-start+end (start end) #'string-map s maybe-start+end
     (%string-map proc s start end)))
 
-(define (%string-map proc s start end)	; Internal utility
+(define-function (%string-map proc s start end)	; Internal utility
   (let* ((len (- end start))
 	 (ans (make-string len)))
     (do ((i (- end 1) (- i 1))
@@ -273,24 +269,24 @@
       (string-set! ans j (funcall proc (string-ref s i))))
     ans))
 
-(define (string-map! proc s . maybe-start+end)
+(define-function (string-map! proc s . maybe-start+end)
   (check-arg procedure? proc string-map!)
   (let-string-start+end (start end) #'string-map! s maybe-start+end
     (%string-map! proc s start end)))
 
-(define (%string-map! proc s start end)
+(define-function (%string-map! proc s start end)
   (do ((i (- end 1) (- i 1)))
       ((< i start))
     (string-set! s i (funcall proc (string-ref s i)))))
 
-(define (string-fold kons knil s . maybe-start+end)
+(define-function (string-fold kons knil s . maybe-start+end)
   (check-arg procedure? kons string-fold)
   (let-string-start+end (start end) #'string-fold s maybe-start+end
     (let lp ((v knil) (i start))
       (if (< i end) (lp (funcall kons (string-ref s i) v) (+ i 1))
 	  v))))
 
-(define (string-fold-right kons knil s . maybe-start+end)
+(define-function (string-fold-right kons knil s . maybe-start+end)
   (check-arg procedure? kons string-fold-right)
   (let-string-start+end (start end) #'string-fold-right s maybe-start+end
     (let lp ((v knil) (i (- end 1)))
@@ -360,13 +356,13 @@
 ;;; and longer ones. When done, we allocate an answer string and copy the
 ;;; chars over from the chunk buffers.
 
-#|//(define (string-unfold p f g seed . base+make-final)
- ; (check-arg procedure? p string-unfold)
-  ;(check-arg procedure? f string-unfold)
-  ;(check-arg procedure? g string-unfold)
+(define-function (string-unfold p f g seed . base+make-final)
+  (check-arg procedure? p string-unfold)
+  (check-arg procedure? f string-unfold)
+  (check-arg procedure? g string-unfold)
   (let-optionals* base+make-final
                   ((base       ""              (string? base))
-		   (make-final (lambda (x) "") (procedure? make-final)))
+		   (make-final (constantly "") (procedure? make-final)))
     (let lp ((chunks '())		; Previously filled chunks
 	     (nchars 0)			; Number of chars in CHUNKS
 	     (chunk (make-string 40))	; Current chunk into which we write
@@ -374,9 +370,9 @@
 	     (i 0)			; Number of chars written into CHUNK
 	     (seed seed))
       (let lp2 ((i i) (seed seed))
-	(if (not (p seed))
-	    (let ((c (f seed))
-		  (seed (g seed)))
+	(if (not (funcall p seed))
+	    (let ((c (funcall f seed))
+		  (seed (funcall g seed)))
 	      (if (< i chunk-len)
 		  (begin (string-set! chunk i c)
 			 (lp2 (+ i 1) seed))
@@ -389,7 +385,7 @@
 			new-chunk chunk-len2 1 seed))))
 
 	    ;; We're done. Make the answer string & install the bits.
-	    (let* ((final (make-final seed))
+	    (let* ((final (funcall make-final seed))
 		   (flen (string-length final))
 		   (base-len (string-length base))
 		   (j (+ base-len nchars i))
@@ -406,12 +402,12 @@
 			(%string-copy! ans j chunk 0 chunk-len)
 			(lp j chunks)))))
 	      (%string-copy! ans 0 base 0 base-len)	; Install BASE.
-	      ans))))))|#
+	      ans))))))
 
-#|//(define (string-unfold-right p f g seed . base+make-final)
+(define-function (string-unfold-right p f g seed . base+make-final)
   (let-optionals* base+make-final
                   ((base       ""              (string? base))
-		   (make-final (lambda (x) "") (procedure? make-final)))
+		   (make-final (constantly "") (procedure? make-final)))
     (let lp ((chunks '())		; Previously filled chunks
 	     (nchars 0)			; Number of chars in CHUNKS
 	     (chunk (make-string 40))	; Current chunk into which we write
@@ -419,9 +415,9 @@
 	     (i 40)			; Number of chars available in CHUNK
 	     (seed seed))
       (let lp2 ((i i) (seed seed))	; Fill up CHUNK from right
-	(if (not (p seed))		; to left.
-	    (let ((c (f seed))
-		  (seed (g seed)))
+	(if (not (funcall p seed))		; to left.
+	    (let ((c (funcall f seed))
+		  (seed (funcall g seed)))
 	      (if (> i 0)
 		  (let ((i (- i 1)))
 		    (string-set! chunk i c)
@@ -436,7 +432,7 @@
 			new-chunk chunk-len2 i seed))))
 
 	    ;; We're done. Make the answer string & install the bits.
-	    (let* ((final (make-final seed))
+	    (let* ((final (funcall make-final seed))
 		   (flen (string-length final))
 		   (base-len (string-length base))
 		   (chunk-used (- chunk-len i))
@@ -453,10 +449,10 @@
 			(%string-copy! ans j chunk 0 chunk-len)
 			(lp (+ j chunk-len) chunks))
 		      (%string-copy! ans j base 0 base-len))); Install BASE.
-	      ans))))))|#
+	      ans))))))
 
 
-(define (string-for-each proc s . maybe-start+end)
+(define-function (string-for-each proc s . maybe-start+end)
   (check-arg procedure? proc string-for-each)
   (let-string-start+end (start end) #'string-for-each s maybe-start+end
     (let lp ((i start))
@@ -464,14 +460,14 @@
 	  (begin (funcall proc (string-ref s i))
 		 (lp (+ i 1)))))))
 
-(define (string-for-each-index proc s . maybe-start+end)
+(define-function (string-for-each-index proc s . maybe-start+end)
   (check-arg procedure? proc string-for-each-index)
   (let-string-start+end (start end) #'string-for-each-index s maybe-start+end
     (let lp ((i start))
       (if (< i end) (begin (funcall proc i) (lp (+ i 1)))))))
 
-#|///(define (string-every criterion s . maybe-start+end)
-  (let-string-start+end (start end) string-every s maybe-start+end
+(define-function (string-every criterion s . maybe-start+end)
+  (let-string-start+end (start end) #'string-every s maybe-start+end
     (cond ((char? criterion)
 	   (let lp ((i start))
 	     (or (>= i end)
@@ -489,15 +485,15 @@
 	       (let lp ((i start))		; is a tail call.
 		 (let ((c (string-ref s i))
 		       (i1 (+ i 1)))
-		   (if (= i1 end) (criterion c)	; Tail call.
-		       (and (criterion c) (lp i1)))))))
+		   (if (= i1 end) (funcall criterion c)	; Tail call.
+		       (and (funcall criterion c) (lp i1)))))))
 
-	  (else (error "Second param is neither char-set, char, or predicate procedure."
-		       string-every criterion)))))|#
+	  (:else (error "Second param is neither char-set, char, or predicate procedure."
+                        #'string-every criterion)))))
 
 
-#|(define (string-any criterion s . maybe-start+end)
-  (let-string-start+end (start end) string-any s maybe-start+end
+(define-function (string-any criterion s . maybe-start+end)
+  (let-string-start+end (start end) #'string-any s maybe-start+end
     (cond ((char? criterion)
 	   (let lp ((i start))
 	     (and (< i end)
@@ -515,23 +511,22 @@
 		(let lp ((i start))		; is a tail call.
 		  (let ((c (string-ref s i))
 			(i1 (+ i 1)))
-		    (if (= i1 end) (criterion c)	; Tail call
-			(or (criterion c) (lp i1)))))))
+		    (if (= i1 end) (funcall criterion c)	; Tail call
+			(or (funcall criterion c) (lp i1)))))))
 
-	  (else (error "Second param is neither char-set, char, or predicate procedure."
-		       string-any criterion)))))|#
+	  (:else (error "Second param is neither char-set, char, or predicate procedure."
+                        #'string-any criterion)))))
 
 
-(define (string-tabulate proc len)
+(define-function (string-tabulate proc len)
   (check-arg procedure? proc string-tabulate)
-  (declare ((and (integer 0) rational) len))
+  (check-arg (lambda (val) (and (integer? val) (exact? val) (<= 0 val)))
+	     len string-tabulate)
   (let ((s (make-string len)))
     (do ((i (- len 1) (- i 1)))
 	((< i 0))
       (string-set! s i (funcall proc i)))
     s))
-
-
 
 ;;; string-prefix-length[-ci] s1 s2 [start1 end1 start2 end2]
 ;;; string-suffix-length[-ci] s1 s2 [start1 end1 start2 end2]
@@ -542,7 +537,7 @@
 ;;; %STRING-PREFIX-LENGTH is the core routine of all string-comparisons,
 ;;; so should be as tense as possible.
 
-(define (%string-prefix-length s1 start1 end1 s2 start2 end2)
+(define-function (%string-prefix-length s1 start1 end1 s2 start2 end2)
   (let* ((delta (min (- end1 start1) (- end2 start2)))
 	 (end1 (+ start1 delta)))
 
@@ -556,7 +551,7 @@
 	      (- i start1)
 	      (lp (+ i 1) (+ j 1)))))))
 
-(define (%string-suffix-length s1 start1 end1 s2 start2 end2)
+(define-function (%string-suffix-length s1 start1 end1 s2 start2 end2)
   (let* ((delta (min (- end1 start1) (- end2 start2)))
 	 (start1 (- end1 delta)))
 
@@ -570,7 +565,7 @@
 	      (- (- end1 i) 1)
 	      (lp (- i 1) (- j 1)))))))
 
-(define (%string-prefix-length-ci s1 start1 end1 s2 start2 end2)
+(define-function (%string-prefix-length-ci s1 start1 end1 s2 start2 end2)
   (let* ((delta (min (- end1 start1) (- end2 start2)))
 	 (end1 (+ start1 delta)))
 
@@ -584,7 +579,7 @@
 	      (- i start1)
 	      (lp (+ i 1) (+ j 1)))))))
 
-(define (%string-suffix-length-ci s1 start1 end1 s2 start2 end2)
+(define-function (%string-suffix-length-ci s1 start1 end1 s2 start2 end2)
   (let* ((delta (min (- end1 start1) (- end2 start2)))
 	 (start1 (- end1 delta)))
 
@@ -599,22 +594,22 @@
 	      (lp (- i 1) (- j 1)))))))
 
 
-(define (string-prefix-length s1 s2 . maybe-starts+ends)
+(define-function (string-prefix-length s1 s2 . maybe-starts+ends)
   (let-string-start+end2 (start1 end1 start2 end2)
 			 #'string-prefix-length s1 s2 maybe-starts+ends
     (%string-prefix-length s1 start1 end1 s2 start2 end2)))
 
-(define (string-suffix-length s1 s2 . maybe-starts+ends)
+(define-function (string-suffix-length s1 s2 . maybe-starts+ends)
   (let-string-start+end2 (start1 end1 start2 end2)
 			 #'string-suffix-length s1 s2 maybe-starts+ends
     (%string-suffix-length s1 start1 end1 s2 start2 end2)))
 
-(define (string-prefix-length-ci s1 s2 . maybe-starts+ends)
+(define-function (string-prefix-length-ci s1 s2 . maybe-starts+ends)
   (let-string-start+end2 (start1 end1 start2 end2)
 			 #'string-prefix-length-ci s1 s2 maybe-starts+ends
     (%string-prefix-length-ci s1 start1 end1 s2 start2 end2)))
 
-(define (string-suffix-length-ci s1 s2 . maybe-starts+ends)
+(define-function (string-suffix-length-ci s1 s2 . maybe-starts+ends)
   (let-string-start+end2 (start1 end1 start2 end2)
 			 #'string-suffix-length-ci s1 s2 maybe-starts+ends
     (%string-suffix-length-ci s1 start1 end1 s2 start2 end2)))
@@ -627,22 +622,22 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; These are all simple derivatives of the previous counting funs.
 
-(define (string-prefix? s1 s2 . maybe-starts+ends)
+(define-function (string-prefix? s1 s2 . maybe-starts+ends)
   (let-string-start+end2 (start1 end1 start2 end2)
 			 #'string-prefix? s1 s2 maybe-starts+ends
     (%string-prefix? s1 start1 end1 s2 start2 end2)))
 
-(define (string-suffix? s1 s2 . maybe-starts+ends)
+(define-function (string-suffix? s1 s2 . maybe-starts+ends)
   (let-string-start+end2 (start1 end1 start2 end2)
 			 #'string-suffix? s1 s2 maybe-starts+ends
     (%string-suffix? s1 start1 end1 s2 start2 end2)))
 
-(define (string-prefix-ci? s1 s2 . maybe-starts+ends)
+(define-function (string-prefix-ci? s1 s2 . maybe-starts+ends)
   (let-string-start+end2 (start1 end1 start2 end2)
 			 #'string-prefix-ci? s1 s2 maybe-starts+ends
     (%string-prefix-ci? s1 start1 end1 s2 start2 end2)))
 
-(define (string-suffix-ci? s1 s2 . maybe-starts+ends)
+(define-function (string-suffix-ci? s1 s2 . maybe-starts+ends)
   (let-string-start+end2 (start1 end1 start2 end2)
 			 #'string-suffix-ci? s1 s2 maybe-starts+ends
     (%string-suffix-ci? s1 start1 end1 s2 start2 end2)))
@@ -650,26 +645,26 @@
 
 ;;; Here are the internal routines that do the real work.
 
-(define (%string-prefix? s1 start1 end1 s2 start2 end2)
+(define-function (%string-prefix? s1 start1 end1 s2 start2 end2)
   (let ((len1 (- end1 start1)))
     (and (<= len1 (- end2 start2))	; Quick check
 	 (= (%string-prefix-length s1 start1 end1
 				   s2 start2 end2)
 	    len1))))
 
-(define (%string-suffix? s1 start1 end1 s2 start2 end2)
+(define-function (%string-suffix? s1 start1 end1 s2 start2 end2)
   (let ((len1 (- end1 start1)))
     (and (<= len1 (- end2 start2))	; Quick check
 	 (= len1 (%string-suffix-length s1 start1 end1
 					s2 start2 end2)))))
 
-(define (%string-prefix-ci? s1 start1 end1 s2 start2 end2)
+(define-function (%string-prefix-ci? s1 start1 end1 s2 start2 end2)
   (let ((len1 (- end1 start1)))
     (and (<= len1 (- end2 start2))	; Quick check
 	 (= len1 (%string-prefix-length-ci s1 start1 end1
 					   s2 start2 end2)))))
 
-(define (%string-suffix-ci? s1 start1 end1 s2 start2 end2)
+(define-function (%string-suffix-ci? s1 start1 end1 s2 start2 end2)
   (let ((len1 (- end1 start1)))
     (and (<= len1 (- end2 start2))	; Quick check
 	 (= len1 (%string-suffix-length-ci s1 start1 end1
@@ -684,7 +679,7 @@
 ;;; Continuations are applied to s1's mismatch index;
 ;;; in the case of equality, this is END1.
 
-(define (%string-compare s1 start1 end1 s2 start2 end2
+(define-function (%string-compare s1 start1 end1 s2 start2 end2
 			   proc< proc= proc>)
   (let ((size1 (- end1 start1))
 	(size2 (- end2 start2)))
@@ -698,7 +693,7 @@
 		   proc< proc>))
 	   (+ match start1))))))
 
-(define (%string-compare-ci s1 start1 end1 s2 start2 end2
+(define-function (%string-compare-ci s1 start1 end1 s2 start2 end2
 			      proc< proc= proc>)
   (let ((size1 (- end1 start1))
 	(size2 (- end2 start2)))
@@ -711,13 +706,13 @@
 		   proc< proc>))
 	   (+ start1 match))))))
 
-(define (string-compare s1 s2 proc< proc= proc> . maybe-starts+ends)
+(define-function (string-compare s1 s2 proc< proc= proc> . maybe-starts+ends)
   (declare (function proc< proc= proc>))
   (let-string-start+end2 (start1 end1 start2 end2)
 			 #'string-compare s1 s2 maybe-starts+ends
     (%string-compare s1 start1 end1 s2 start2 end2 proc< proc= proc>)))
 
-(define (string-compare-ci s1 s2 proc< proc= proc> . maybe-starts+ends)
+(define-function (string-compare-ci s1 s2 proc< proc= proc> . maybe-starts+ends)
   (declare (function proc< proc= proc>))
   (let-string-start+end2 (start1 end1 start2 end2)
 			 #'string-compare-ci s1 s2 maybe-starts+ends
@@ -732,7 +727,7 @@
 ;;; Simple definitions in terms of the previous comparison funs.
 ;;; I sure hope the %STRING-COMPARE calls get integrated.
 
-(define (string= s1 s2 . maybe-starts+ends)
+(define-function (string= s1 s2 . maybe-starts+ends)
   (let-string-start+end2 (start1 end1 start2 end2)
 			 #'string= s1 s2 maybe-starts+ends
     (and (= (- end1 start1) (- end2 start2))			; Quick filter
@@ -742,7 +737,7 @@
 			      #'values
 			      (constantly nil))))))
 
-(define (string<> s1 s2 . maybe-starts+ends)
+(define-function (string<> s1 s2 . maybe-starts+ends)
   (let-string-start+end2 (start1 end1 start2 end2)
 			 #'string<> s1 s2 maybe-starts+ends
     (or (not (= (- end1 start1) (- end2 start2)))		; Fast path
@@ -752,7 +747,7 @@
 			      (constantly nil)
 			      #'values)))))
 
-(define (string< s1 s2 . maybe-starts+ends)
+(define-function (string< s1 s2 . maybe-starts+ends)
   (let-string-start+end2 (start1 end1 start2 end2)
 			 #'string< s1 s2 maybe-starts+ends
     (if (and (eq? s1 s2) (= start1 start2))			; Fast path
@@ -763,7 +758,7 @@
 			 (constantly nil)
 			 (constantly nil)))))
 
-(define (string> s1 s2 . maybe-starts+ends)
+(define-function (string> s1 s2 . maybe-starts+ends)
   (let-string-start+end2 (start1 end1 start2 end2)
 			 #'string> s1 s2 maybe-starts+ends
     (if (and (eq? s1 s2) (= start1 start2))			; Fast path
@@ -774,7 +769,7 @@
                          (constantly nil)
 			 #'values))))
 
-(define (string<= s1 s2 . maybe-starts+ends)
+(define-function (string<= s1 s2 . maybe-starts+ends)
   (let-string-start+end2 (start1 end1 start2 end2)
 			 #'string<= s1 s2 maybe-starts+ends
     (if (and (eq? s1 s2) (= start1 start2))			; Fast path
@@ -785,7 +780,7 @@
 			 #'values
 			 (constantly nil)))))
 
-(define (string>= s1 s2 . maybe-starts+ends)
+(define-function (string>= s1 s2 . maybe-starts+ends)
   (let-string-start+end2 (start1 end1 start2 end2)
 			 #'string>= s1 s2 maybe-starts+ends
     (if (and (eq? s1 s2) (= start1 start2))			; Fast path
@@ -796,7 +791,7 @@
 			 #'values
 			 #'values))))
 
-(define (string-ci= s1 s2 . maybe-starts+ends)
+(define-function (string-ci= s1 s2 . maybe-starts+ends)
   (let-string-start+end2 (start1 end1 start2 end2)
 			 #'string-ci= s1 s2 maybe-starts+ends
     (and (= (- end1 start1) (- end2 start2))			; Quick filter
@@ -806,7 +801,7 @@
 				 #'values
 				 (constantly nil))))))
 
-(define (string-ci<> s1 s2 . maybe-starts+ends)
+(define-function (string-ci<> s1 s2 . maybe-starts+ends)
   (let-string-start+end2 (start1 end1 start2 end2)
 			 #'string-ci<> s1 s2 maybe-starts+ends
     (or (not (= (- end1 start1) (- end2 start2)))		; Fast path
@@ -816,7 +811,7 @@
 				 (constantly nil)
 				 #'values)))))
 
-(define (string-ci< s1 s2 . maybe-starts+ends)
+(define-function (string-ci< s1 s2 . maybe-starts+ends)
   (let-string-start+end2 (start1 end1 start2 end2)
 			 #'string-ci< s1 s2 maybe-starts+ends
     (if (and (eq? s1 s2) (= start1 start2))			; Fast path
@@ -827,7 +822,7 @@
 			    (constantly nil)
 			    (constantly nil)))))
 
-(define (string-ci> s1 s2 . maybe-starts+ends)
+(define-function (string-ci> s1 s2 . maybe-starts+ends)
   (let-string-start+end2 (start1 end1 start2 end2)
 			 #'string-ci> s1 s2 maybe-starts+ends
     (if (and (eq? s1 s2) (= start1 start2))			; Fast path
@@ -838,7 +833,7 @@
 			    (constantly nil)
 			    #'values))))
 
-(define (string-ci<= s1 s2 . maybe-starts+ends)
+(define-function (string-ci<= s1 s2 . maybe-starts+ends)
   (let-string-start+end2 (start1 end1 start2 end2)
 			 #'string-ci<= s1 s2 maybe-starts+ends
     (if (and (eq? s1 s2) (= start1 start2))			; Fast path
@@ -849,7 +844,7 @@
 			    #'values
 			    (constantly nil)))))
 
-(define (string-ci>= s1 s2 . maybe-starts+ends)
+(define-function (string-ci>= s1 s2 . maybe-starts+ends)
   (let-string-start+end2 (start1 end1 start2 end2)
 			 #'string-ci>= s1 s2 maybe-starts+ends
     (if (and (eq? s1 s2) (= start1 start2))			; Fast path
@@ -878,35 +873,35 @@
 ;;; where 65535 is the max character code. Choose the default BOUND to be the
 ;;; biggest power of two that won't cause this expression to fixnum overflow,
 ;;; and everything will be copacetic.
-#|||
-(define (%string-hash s char->int bound start end)
-  (let ((iref (lambda (s i) (char->int (string-ref s i))))
+
+(define-function (%string-hash s char->int bound start end)
+  (let ((iref (lambda (s i) (funcall char->int (string-ref s i))))
 	;; Compute a 111...1 mask that will cover BOUND-1:
 	(mask (let lp ((i #x10000)) ; Let's skip first 16 iterations, eh?
 		(if (>= i bound) (- i 1) (lp (+ i i))))))
     (let lp ((i start) (ans 0))
       (if (>= i end) (modulo ans bound)
-	  (lp (+ i 1) (bitwise-and mask (+ (* 37 ans) (iref s i))))))))
+	  (lp (+ i 1) (bitwise-and mask (+ (* 37 ans) (funcall iref s i))))))))
 
-(define (string-hash s . maybe-bound+start+end)
+(define-function (string-hash s . maybe-bound+start+end)
   (let-optionals* maybe-bound+start+end ((bound 4194304 (and (integer? bound)
 							     (exact? bound)
 							     (<= 0 bound)))
 					 rest)
     (let ((bound (if (zero? bound) 4194304 bound)))	; 0 means default.
-      (let-string-start+end (start end) string-hash s rest
-        (%string-hash s char->integer bound start end)))))
+      (let-string-start+end (start end) #'string-hash s rest
+        (%string-hash s #'char->integer bound start end)))))
 
-(define (string-hash-ci s . maybe-bound+start+end)
+(define-function (string-hash-ci s . maybe-bound+start+end)
   (let-optionals* maybe-bound+start+end ((bound 4194304 (and (integer? bound)
 							     (exact? bound)
 							     (<= 0 bound)))
 					 rest)
     (let ((bound (if (zero? bound) 4194304 bound)))	; 0 means default.
-      (let-string-start+end (start end) string-hash-ci s rest
+      (let-string-start+end (start end) #'string-hash-ci s rest
         (%string-hash s (lambda (c) (char->integer (char-downcase c)))
 		      bound start end)))))
-|||#
+
 ;;; Case hacking
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; string-upcase  s [start end]
@@ -919,43 +914,50 @@
 ;;;   Capitalize every contiguous alpha sequence: capitalise
 ;;;   first char, lowercase rest.
 
-(define (string-upcase  s . maybe-start+end)
+(define-function (string-upcase  s . maybe-start+end)
   (let-string-start+end (start end) #'string-upcase s maybe-start+end
     (%string-map #'char-upcase s start end)))
 
-(define (string-upcase! s . maybe-start+end)
+(define-function (string-upcase! s . maybe-start+end)
   (let-string-start+end (start end) #'string-upcase! s maybe-start+end
     (%string-map! #'char-upcase s start end)))
 
-(define (string-downcase  s . maybe-start+end)
+(define-function (string-downcase  s . maybe-start+end)
   (let-string-start+end (start end) #'string-downcase s maybe-start+end
     (%string-map #'char-downcase s start end)))
 
-(define (string-downcase! s . maybe-start+end)
+(define-function (string-downcase! s . maybe-start+end)
   (let-string-start+end (start end) #'string-downcase! s maybe-start+end
     (%string-map! #'char-downcase s start end)))
 
-#|(define (%string-titlecase! s start end)
+(defun char-titlecase (char)
+  (cl:char-upcase char))
+
+(defun char-cased? (char)
+  (not (eql (cl:char-upcase char)
+            (cl:char-downcase char))))
+
+(define-function (%string-titlecase! s start end)
   (let lp ((i start))
-    (cond ((string-index s #'char-cased? i end) =>
-           (lambda (i)
-	     (string-set! s i (char-titlecase (string-ref s i)))
-	     (let ((i1 (+ i 1)))
-	       (cond ((string-skip s char-cased? i1 end) =>
-		      (lambda (j)
-			(string-downcase! s i1 j)
-			(lp (+ j 1))))
-		     (else (string-downcase! s i1 end)))))))))|#
+    (srfi-61:cond ((string-index s #'char-cased? i end) :=>
+                   (lambda (i)
+                     (string-set! s i (char-titlecase (string-ref s i)))
+                     (let ((i1 (+ i 1)))
+                       (srfi-61:cond ((string-skip s #'char-cased? i1 end) :=>
+                                      (lambda (j)
+                                        (string-downcase! s i1 j)
+                                        (lp (+ j 1))))
+		     (:else (string-downcase! s i1 end)))))))))
 
-#|(define (string-titlecase! s . maybe-start+end)
+(define-function (string-titlecase! s . maybe-start+end)
   (let-string-start+end (start end) #'string-titlecase! s maybe-start+end
-    (%string-titlecase! s start end)))|#
+    (%string-titlecase! s start end)))
 
-#|(define (string-titlecase s . maybe-start+end)
-  (let-string-start+end (start end) string-titlecase! s maybe-start+end
+(define-function (string-titlecase s . maybe-start+end)
+  (let-string-start+end (start end) #'string-titlecase! s maybe-start+end
     (let ((ans (substring s start end)))
       (%string-titlecase! ans 0 (- end start))
-      ans)))|#
+      ans)))
 
 
 ;;; Cutting & pasting strings
@@ -976,36 +978,44 @@
 ;;; These trimmers invert the char-set meaning from MIT Scheme -- you
 ;;; say what you want to trim.
 
-(define (string-take s n)
+(define-function (string-take s n)
   (check-arg string? s string-take)
-  #|(check-arg (lambda (val) (and (integer? n) (exact? n)
-				(<= 0 n (string-length s))))
-	     n string-take)|#
+  (check-arg (lambda (val)
+               (declare (ignore val))
+               (and (integer? n) (exact? n)
+                    (<= 0 n (string-length s))))
+	     n string-take)
   (%substring/shared s 0 n))
 
-(define (string-take-right s n)
+(define-function (string-take-right s n)
   (check-arg string? s string-take-right)
   (let ((len (string-length s)))
-    #|(check-arg (lambda (val) (and (integer? n) (exact? n) (<= 0 n len)))
-	       n string-take-right)|#
+    (check-arg (lambda (val)
+                 (declare (ignore val))
+                 (and (integer? n) (exact? n) (<= 0 n len)))
+	       n string-take-right)
     (%substring/shared s (- len n) len)))
 
-(define (string-drop s n)
+(define-function (string-drop s n)
   (check-arg string? s string-drop)
   (let ((len (string-length s)))
-    #|(check-arg (lambda (val) (and (integer? n) (exact? n) (<= 0 n len)))
-	       n string-drop)|#
-  (%substring/shared s n len)))
+    (check-arg (lambda (val)
+                 (declare (ignore val))
+                 (and (integer? n) (exact? n) (<= 0 n len)) )
+	       n string-drop)
+    (%substring/shared s n len) ))
 
-(define (string-drop-right s n)
+(define-function (string-drop-right s n)
   (check-arg string? s string-drop-right)
   (let ((len (string-length s)))
-    #|(check-arg (lambda (val) (and (integer? n) (exact? n) (<= 0 n len)))
-	       n string-drop-right)|#
+    (check-arg (lambda (val)
+                 (declare (ignore val))
+                 (and (integer? n) (exact? n) (<= 0 n len)))
+	       n string-drop-right)
     (%substring/shared s 0 (- len n))))
 
 
-#|(defun string-trim (s &optional
+(defun string-trim (s &optional
                      criterion
                      (start 0)
                      (end (length s)))
@@ -1014,27 +1024,29 @@
     (srfi-61:cond
       ((string-skip s criterion start end) :=>
        (lambda (i) (%substring/shared s i end)))
-      (:else ""))))|#
+      (:else ""))))
 
-#|(define (string-trim-right s . criterion+start+end)
+(define-function (string-trim-right s . criterion+start+end)
   (let-optionals* criterion+start+end ((criterion char-set:whitespace) rest)
-    (let-string-start+end (start end) string-trim-right s rest
-      (cond ((string-skip-right s criterion start end) =>
-	     (lambda (i) (%substring/shared s 0 (+ 1 i))))
-	    (else "")))))|#
+    (let-string-start+end (start end) #'string-trim-right s rest
+      (srfi-61:cond ((string-skip-right s criterion start end) :=>
+                     (lambda (i) (%substring/shared s 0 (+ 1 i))))
+                    (:else "")))))
 
-#|(define (string-trim-both s . criterion+start+end)
+(define-function (string-trim-both s . criterion+start+end)
   (let-optionals* criterion+start+end ((criterion char-set:whitespace) rest)
-    (let-string-start+end (start end) string-trim-both s rest
-      (cond ((string-skip s criterion start end) =>
+    (let-string-start+end (start end) #'string-trim-both s rest
+      (srfi-61:cond ((string-skip s criterion start end) :=>
 	     (lambda (i)
-	       (%substring/shared s i (+ 1 (string-skip-right s criterion i end)))))
-	    (else "")))))|#
+	       (%substring/shared s
+                                  i
+                                  (+ 1 (string-skip-right s criterion i end)))))
+	    (:else "")))))
 
 
-#|(define (string-pad-right s n . char+start+end)
+(define-function (string-pad-right s n . char+start+end)
   (let-optionals* char+start+end ((char #\space (char? char)) rest)
-    (let-string-start+end (start end) string-pad-right s rest
+    (let-string-start+end (start end) #'string-pad-right s rest
       (check-arg (lambda (n) (and (integer? n) (exact? n) (<= 0 n)))
 		 n string-pad-right)
       (let ((len (- end start)))
@@ -1042,11 +1054,11 @@
 	    (%substring/shared s start (+ start n))
 	    (let ((ans (make-string n char)))
 	      (%string-copy! ans 0 s start end)
-	      ans))))))|#
+	      ans))))))
 
-#|(define (string-pad s n . char+start+end)
+(define-function (string-pad s n . char+start+end)
   (let-optionals* char+start+end ((char #\space (char? char)) rest)
-    (let-string-start+end (start end) string-pad s rest
+    (let-string-start+end (start end) #'string-pad s rest
       (check-arg (lambda (n) (and (integer? n) (exact? n) (<= 0 n)))
 		 n string-pad)
       (let ((len (- end start)))
@@ -1054,7 +1066,7 @@
 	    (%substring/shared s (- end n) end)
 	    (let ((ans (make-string n char)))
 	      (%string-copy! ans (- n len) s start end)
-	      ans))))))|#
+	      ans))))))
 
 
 
@@ -1072,7 +1084,7 @@
 ;;;   one scan over S. This is likely to be faster and more space-efficient
 ;;;   than consing a list.
 
-#|(define (string-delete criterion s . maybe-start+end)
+(define-function (string-delete criterion s . maybe-start+end)
   (let-string-start+end (start end) #'string-delete s maybe-start+end
     (if (procedure? criterion)
 	(let* ((slen (- end start))
@@ -1086,7 +1098,7 @@
 
 	(let* ((cset (cond ((char-set? criterion) criterion)
 			   ((char? criterion) (char-set criterion))
-			   (else (error "string-delete criterion not predicate, char or char-set" criterion))))
+			   (:else (error "string-delete criterion not predicate, char or char-set" criterion))))
 	       (len (string-fold (lambda (c i) (if (char-set-contains? cset c)
 						   i
 						   (+ i 1)))
@@ -1097,15 +1109,15 @@
 					 (begin (string-set! ans i c)
 						(+ i 1))))
 		       0 s start end)
-	  ans))))|#
+	  ans))))
 
-#|(define (string-filter criterion s . maybe-start+end)
+(define-function (string-filter criterion s . maybe-start+end)
   (let-string-start+end (start end) #'string-filter s maybe-start+end
     (if (procedure? criterion)
 	(let* ((slen (- end start))
 	       (temp (make-string slen))
 	       (ans-len (string-fold (lambda (c i)
-				       (if (criterion c)
+				       (if (funcall criterion c)
 					   (begin (string-set! temp i c)
 						  (+ i 1))
 					   i))
@@ -1114,7 +1126,7 @@
 
 	(let* ((cset (cond ((char-set? criterion) criterion)
 			   ((char? criterion) (char-set criterion))
-			   (else (error "string-delete criterion not predicate, char or char-set" criterion))))
+			   (:else (error "string-delete criterion not predicate, char or char-set" criterion))))
 
 	       (len (string-fold (lambda (c i) (if (char-set-contains? cset c)
 						   (+ i 1)
@@ -1126,7 +1138,7 @@
 						(+ i 1))
 					 i))
 		       0 s start end)
-	  ans))))|#
+	  ans))))
 
 
 ;;; String search
@@ -1140,8 +1152,8 @@
 ;;;     For example, the char/char-set/pred discrimination has
 ;;;     been lifted above the inner loop of each proc.
 
-#|(define (string-index str criterion . maybe-start+end)
-  (let-string-start+end (start end) string-index str maybe-start+end
+(define-function (string-index str criterion . maybe-start+end)
+  (let-string-start+end (start end) #'string-index str maybe-start+end
     (cond ((char? criterion)
 	   (let lp ((i start))
 	     (and (< i end)
@@ -1155,13 +1167,13 @@
 	  ((procedure? criterion)
 	   (let lp ((i start))
 	     (and (< i end)
-		  (if (criterion (string-ref str i)) i
+		  (if (funcall criterion (string-ref str i)) i
 		      (lp (+ i 1))))))
-	  (else (error "Second param is neither char-set, char, or predicate procedure."
-		       string-index criterion)))))|#
+	  (:else (error "Second param is neither char-set, char, or predicate procedure."
+		       #'string-index criterion)))))
 
-#|(define (string-index-right str criterion . maybe-start+end)
-  (let-string-start+end (start end) string-index-right str maybe-start+end
+(define-function (string-index-right str criterion . maybe-start+end)
+  (let-string-start+end (start end) #'string-index-right str maybe-start+end
     (cond ((char? criterion)
 	   (let lp ((i (- end 1)))
 	     (and (>= i start)
@@ -1175,13 +1187,13 @@
 	  ((procedure? criterion)
 	   (let lp ((i (- end 1)))
 	     (and (>= i start)
-		  (if (criterion (string-ref str i)) i
+		  (if (funcall criterion (string-ref str i)) i
 		      (lp (- i 1))))))
-	  (else (error "Second param is neither char-set, char, or predicate procedure."
-		       string-index-right criterion)))))|#
+	  (:else (error "Second param is neither char-set, char, or predicate procedure."
+                        #'string-index-right criterion)))))
 
-#|(define (string-skip str criterion . maybe-start+end)
-  (let-string-start+end (start end) string-skip str maybe-start+end
+(define-function (string-skip str criterion . maybe-start+end)
+  (let-string-start+end (start end) #'string-skip str maybe-start+end
     (cond ((char? criterion)
 	   (let lp ((i start))
 	     (and (< i end)
@@ -1197,13 +1209,13 @@
 	  ((procedure? criterion)
 	   (let lp ((i start))
 	     (and (< i end)
-		  (if (criterion (string-ref str i)) (lp (+ i 1))
+		  (if (funcall criterion (string-ref str i)) (lp (+ i 1))
 		      i))))
-	  (else (error "Second param is neither char-set, char, or predicate procedure."
-		       string-skip criterion)))))|#
+	  (:else (error "Second param is neither char-set, char, or predicate procedure."
+		       #'string-skip criterion)))))
 
-#|(define (string-skip-right str criterion . maybe-start+end)
-  (let-string-start+end (start end) string-skip-right str maybe-start+end
+(define-function (string-skip-right str criterion . maybe-start+end)
+  (let-string-start+end (start end) #'string-skip-right str maybe-start+end
     (cond ((char? criterion)
 	   (let lp ((i (- end 1)))
 	     (and (>= i start)
@@ -1219,14 +1231,14 @@
 	  ((procedure? criterion)
 	   (let lp ((i (- end 1)))
 	     (and (>= i start)
-		  (if (criterion (string-ref str i)) (lp (- i 1))
+		  (if (funcall criterion (string-ref str i)) (lp (- i 1))
 		      i))))
-	  (else (error "CRITERION param is neither char-set or char."
-		       string-skip-right criterion)))))|#
+	  (:else (error "CRITERION param is neither char-set or char."
+                        #'string-skip-right criterion)))))
 
 
-#|(define (string-count s criterion . maybe-start+end)
-  (let-string-start+end (start end) string-count s maybe-start+end
+(define-function (string-count s criterion . maybe-start+end)
+  (let-string-start+end (start end) #'string-count s maybe-start+end
     (cond ((char? criterion)
 	   (do ((i start (+ i 1))
 		(count 0 (if (char=? criterion (string-ref s i))
@@ -1243,11 +1255,13 @@
 
 	  ((procedure? criterion)
 	   (do ((i start (+ i 1))
-		(count 0 (if (fncall criterion (string-ref s i)) (+ count 1) count)))
+		(count 0 (if (funcall criterion (string-ref s i))
+                             (+ count 1)
+                             count)))
 	       ((>= i end) count)))
 
 	  (:else (srfi-23:error "CRITERION param is neither char-set or char."
-                                'string-count criterion)))))|#
+                                'string-count criterion)))))
 
 
 
@@ -1257,21 +1271,21 @@
 ;;; string-copy! to tstart from [fstart fend]
 ;;; 	Guaranteed to work, even if s1 eq s2.
 
-(define (string-fill! s char . maybe-start+end)
+(define-function (string-fill! s char . maybe-start+end)
   (check-arg char? char string-fill!)
   (let-string-start+end (start end) #'string-fill! s maybe-start+end
     (do ((i (- end 1) (- i 1)))
 	((< i start))
       (string-set! s i char))))
 
-(define (string-copy! to tstart from . maybe-fstart+fend)
+(define-function (string-copy! to tstart from . maybe-fstart+fend)
   (let-string-start+end (fstart fend) #'string-copy! from maybe-fstart+fend
-    #|(check-arg integer? tstart string-copy!)|#
-    #|(check-substring-spec string-copy! to tstart (+ tstart (- fend fstart)))|#
+    (check-arg integer? tstart string-copy!)
+    (check-substring-spec #'string-copy! to tstart (+ tstart (- fend fstart)))
     (%string-copy! to tstart from fstart fend)))
 
 ;;; Library-internal routine
-(define (%string-copy! to tstart from fstart fend)
+(define-function (%string-copy! to tstart from fstart fend)
   (if (> fstart tstart)
       (do ((i fstart (+ i 1))
 	   (j tstart (+ j 1)))
@@ -1305,15 +1319,15 @@
 ;;; Searching for an occurrence of a substring
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define (string-contains text pattern . maybe-starts+ends)
+(define-function (string-contains text pattern . maybe-starts+ends)
   (let-string-start+end2 (t-start t-end p-start p-end)
                          #'string-contains text pattern maybe-starts+ends
-    (%kmp-search pattern text char=? p-start p-end t-start t-end)))
+    (%kmp-search pattern text #'char=? p-start p-end t-start t-end)))
 
-(define (string-contains-ci text pattern . maybe-starts+ends)
+(define-function (string-contains-ci text pattern . maybe-starts+ends)
   (let-string-start+end2 (t-start t-end p-start p-end)
                          #'string-contains-ci text pattern maybe-starts+ends
-    (%kmp-search pattern text char-ci=? p-start p-end t-start t-end)))
+    (%kmp-search pattern text #'char-ci=? p-start p-end t-start t-end)))
 
 
 ;;; Knuth-Morris-Pratt string searching
@@ -1333,7 +1347,7 @@
 ;;; KMP search source[start,end) for PATTERN. Return starting index of
 ;;; leftmost match or #f.
 
-(define (%kmp-search pattern text c= p-start p-end t-start t-end)
+(define-function (%kmp-search pattern text c= p-start p-end t-start t-end)
   (let ((plen (- p-end p-start))
 	(rv (make-kmp-restart-vector pattern c= p-start p-end)))
 
@@ -1429,7 +1443,7 @@
 ;;; defaulting of arguments. This is a low-level, inner-loop procedure
 ;;; that we want integrated/inlined into the point of call.
 
-(define (kmp-step pat rv c i c= p-start)
+(define-function (kmp-step pat rv c i c= p-start)
   (let lp ((i i))
     (if (funcall c= c (string-ref pat (+ i p-start)))	; Match =>
 	(+ i 1)					;   Done.
@@ -1456,8 +1470,8 @@
                                       (s-end (length pat)))
   (declare (vector rv))
   (let ((patlen (length rv)))
-    #|(check-arg (lambda (i) (and (integer? i) (exact? i) (<= 0 i) (< i patlen)))
-    i string-kmp-partial-search)|#
+    (check-arg (lambda (i) (and (integer? i) (exact? i) (<= 0 i) (< i patlen)))
+    i string-kmp-partial-search)
 
     ;; Enough prelude. Here's the actual code.
     (let lp ((si s-start)		; An index into S.
@@ -1483,9 +1497,9 @@
 ;;; (reverse-list->string clist)
 ;;; (string->list s [start end])
 
-(define (string-null? s) (zero? (string-length s)))
+(define-function (string-null? s) (zero? (string-length s)))
 
-(define (string-reverse s . maybe-start+end)
+(define-function (string-reverse s . maybe-start+end)
   (let-string-start+end (start end) #'string-reverse s maybe-start+end
     (let* ((len (- end start))
 	   (ans (make-string len)))
@@ -1495,7 +1509,7 @@
 	(string-set! ans j (string-ref s i)))
       ans)))
 
-(define (string-reverse! s . maybe-start+end)
+(define-function (string-reverse! s . maybe-start+end)
   (let-string-start+end (start end) #'string-reverse! s maybe-start+end
     (do ((i (- end 1) (- i 1))
 	 (j start (+ j 1)))
@@ -1505,7 +1519,7 @@
 	(string-set! s j ci)))))
 
 
-(define (reverse-list->string clist)
+(define-function (reverse-list->string clist)
   (let* ((len (length clist))
 	 (s (make-string len)))
     (do ((i (- len 1) (- i 1))   (clist clist (cdr clist)))
@@ -1517,14 +1531,14 @@
 ;(define (string->list s . maybe-start+end)
 ;  (apply string-fold-right cons '() s maybe-start+end))
 
-(define (string->list s . maybe-start+end)
+(define-function (string->list s . maybe-start+end)
   (let-string-start+end (start end) #'string->list s maybe-start+end
     (do ((i (- end 1) (- i 1))
 	 (ans '() (cons (char s i) ans)))
 	((< i start) ans))))
 
 ;;; Defined by R5RS, so commented out here.
-;(define (list->string lis) (string-unfold null? car cdr lis))
+(define-function (list->string lis) (string-unfold #'null? #'car #'cdr lis))
 
 ;;; string-concatenate        string-list -> string
 ;;; string-concatenate/shared string-list -> string
@@ -1542,9 +1556,9 @@
 ;;; particular, if it is applied to a singleton list, it is permitted to
 ;;; return the car of that list as its value.
 
-(define (string-append/shared . strings) (string-concatenate/shared strings))
+(define-function (string-append/shared . strings) (string-concatenate/shared strings))
 
-(define (string-concatenate/shared strings)
+(define-function (string-concatenate/shared strings)
   (let lp ((strings strings) (nchars 0) (first nil))
     (cond ((pair? strings)			; Scan the args, add up total
 	   (let* ((string  (car strings))	; length, remember 1st
@@ -1574,7 +1588,7 @@
 
 ;;; Here it is written out. I avoid using REDUCE to add up string lengths
 ;;; to avoid non-R5RS dependencies.
-(define (string-concatenate strings)
+(define-function (string-concatenate strings)
   (let* ((total (do ((strings strings (cdr strings))
 		     (i 0 (+ i (string-length (car strings)))))
 		    ((not (pair? strings)) i)))
@@ -1632,7 +1646,7 @@
                  (:else
                   (%finish-string-concatenate-reverse len nzlist final end))))))
 
-(define (%finish-string-concatenate-reverse len string-list final end)
+(define-function (%finish-string-concatenate-reverse len string-list final end)
   (let ((ans (make-string (+ end len))))
     (%string-copy! ans len final 0 end)
     (let lp ((i len) (lis string-list))
@@ -1649,8 +1663,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Replace S1[START1,END1) with S2[START2,END2).
 
-(define (string-replace s1 s2 start1 end1 . maybe-start+end)
-  #|(check-substring-spec string-replace s1 start1 end1)|#
+(define-function (string-replace s1 s2 start1 end1 . maybe-start+end)
+  (check-substring-spec #'string-replace s1 start1 end1)
   (let-string-start+end (start2 end2) #'string-replace s2 maybe-start+end
     (let* ((slen1 (string-length s1))
 	   (sublen2 (- end2 start2))
@@ -1668,23 +1682,24 @@
 ;;; non-empty contiguous sequence of chars belonging to TOKEN-SET.
 ;;; (string-tokenize "hello, world") => ("hello," "world")
 
-(defun string-tokenize (s &optional
-                          token-chars
-                          start
-                          end
-                          &rest rest)
-  (let-string-start+end (start end) #'string-tokenize s rest
-    (let lp ((i end) (ans '()))
-       (srfi-61:cond ((and (< start i) (string-index-right s token-chars start i)) :=>
-              (lambda (tend-1)
-                (let ((tend (+ 1 tend-1)))
-                  (srfi-61:cond ((string-skip-right s token-chars start tend-1) :=>
-                         (lambda (tstart-1)
-                           (lp tstart-1
-                               (cons (substring s (+ 1 tstart-1) tend)
-                                     ans))))
-                        (else (cons (substring s start tend) ans))))))
-             (:else ans)))))
+(define-function (string-tokenize s . token-chars+start+end)
+  (let-optionals* token-chars+start+end
+                  ((token-chars char-set:graphic (char-set? token-chars)) rest)
+    (let-string-start+end (start end) #'string-tokenize s rest
+      (let lp ((i end) (ans '()))
+	(srfi-61:cond
+          ((and (< start i) (string-index-right s token-chars start i)) :=>
+	       (lambda (tend-1)
+		 (let ((tend (+ 1 tend-1)))
+		   (srfi-61:cond
+                     ((string-skip-right s token-chars start tend-1) :=>
+			  (lambda (tstart-1)
+			    (lp tstart-1
+				(cons (substring s (+ 1 tstart-1) tend)
+				      ans))))
+			 (else (cons (substring s start tend) ans))))))
+	      (:else ans))))))
+
 
 
 ;;; xsubstring s from [to start end] -> string
@@ -1714,17 +1729,17 @@
 ;;; It is an error if START=END -- although this is allowed by special
 ;;; dispensation when FROM=TO.
 
-(define (xsubstring s from . maybe-to+start+end)
-  #|(check-arg (lambda (val) (and (integer? val) (exact? val)))
-	     from xsubstring)|#
+(define-function (xsubstring s from . maybe-to+start+end)
+  (check-arg (lambda (val) (and (integer? val) (exact? val)))
+	     from xsubstring)
   (receive (to start end)
            (if (pair? maybe-to+start+end)
 	       (let-string-start+end (start end) #'xsubstring s (cdr maybe-to+start+end)
                   (let ((to (car maybe-to+start+end)))
-		   #|(check-arg (lambda (val) (and (integer? val)
+		   (check-arg (lambda (val) (and (integer? val)
 						 (exact? val)
 						 (<= from val)))
-			      to xsubstring)|#
+			      to xsubstring)
 		   (values to start end)))
 	       (let ((slen (string-length s)))
 		 (values (+ from slen) 0 slen)))
@@ -1755,15 +1770,15 @@
 ;;; This operation is not defined if (EQ? TARGET S) -- you cannot copy
 ;;; a string on top of itself.
 
-(define (string-xcopy! target tstart s sfrom . maybe-sto+start+end)
-  #|(check-arg (lambda (val) (and (integer? val) (exact? val)))
-	     sfrom string-xcopy!)|#
+(define-function (string-xcopy! target tstart s sfrom . maybe-sto+start+end)
+  (check-arg (lambda (val) (and (integer? val) (exact? val)))
+	     sfrom string-xcopy!)
   (receive (sto start end)
            (if (pair? maybe-sto+start+end)
 	       (let-string-start+end (start end) #'string-xcopy! s (cdr maybe-sto+start+end)
 		 (let ((sto (car maybe-sto+start+end)))
-		   #|(check-arg (lambda (val) (and (integer? val) (exact? val)))
-			      sto string-xcopy!)|#
+		   (check-arg (lambda (val) (and (integer? val) (exact? val)))
+			      sto string-xcopy!)
 		   (values sto start end)))
 	       (let ((slen (string-length s)))
 		 (values (+ sfrom slen) 0 slen)))
@@ -1771,7 +1786,7 @@
     (let* ((tocopy (- sto sfrom))
 	   (tend (+ tstart tocopy))
 	   (slen (- end start)))
-      #|(check-substring-spec string-xcopy! target tstart tend)|#
+      (check-substring-spec #'string-xcopy! target tstart tend)
       (cond ((zero? tocopy))
 	    ((zero? slen) (error "Cannot replicate empty (sub)string"
 				 'string-xcopy!
@@ -1791,7 +1806,7 @@
 
 ;;; This is the core copying loop for XSUBSTRING and STRING-XCOPY!
 ;;; Internal -- not exported, no careful arg checking.
-(define (%multispan-repcopy! target tstart s sfrom sto start end)
+(define-function (%multispan-repcopy! target tstart s sfrom sto start end)
   (let* ((slen (- end start))
 	 (i0 (+ start (mod sfrom slen)))
 	 (total-chars (- sto sfrom)))
@@ -1830,40 +1845,40 @@
 ;;; answer string, then allocate & fill it in iteratively. Using
 ;;; STRING-CONCATENATE is less efficient.
 
-(define (string-join strings
-                     &optional
-                     (delim " ")
-                     (grammar 'infix))
+(define-function (string-join strings
+                              &optional
+                              (delim " ")
+                              (grammar :infix) )
   (let ((buildit (lambda (lis final)
                    (let recur ((lis lis))
                         (if (pair? lis)
                             (cons delim (cons (car lis) (recur (cdr lis))))
-                            final)))))
+                            final )))))
     (cond ((pair? strings)
            (string-concatenate
             (case grammar
 
-              ((infix strict-infix)
-		 (cons (car strings) (funcall buildit (cdr strings) '())))
+              ((:infix :strict-infix)
+               (cons (car strings) (funcall buildit (cdr strings) '())) )
 
-              ((prefix) (funcall buildit strings '()))
+              ((:prefix) (funcall buildit strings '()))
 
-              ((suffix)
-		 (cons (car strings) (funcall buildit (cdr strings) (list delim))))
+              ((:suffix)
+               (cons (car strings) (funcall buildit (cdr strings) (list delim))) )
 
-              (otherwise (srfi-23:error "Illegal join grammar"
-                                        grammar 'string-join)))))
+              (otherwise (error "Illegal join grammar"
+                                grammar #'string-join)))))
 
           ((not (null? strings))
-           (error "STRINGS parameter not list." strings 'string-join))
+           (error "STRINGS parameter not list." strings #'string-join) )
 
           ;; STRINGS is ()
 
-          ((eq? grammar 'strict-infix)
+          ((eq? grammar :strict-infix)
            (error "Empty list cannot be joined with STRICT-INFIX grammar."
-                  'string-join))
+                  'string-join ))
 
-          (:else ""))))		; Special-cased for infix grammar.
+          (:else "") )))		; Special-cased for infix grammar.
 
 
 ;;; Porting & performance-tuning notes
@@ -2015,4 +2030,3 @@
 ;;; THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 ;;; (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 ;;; THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
