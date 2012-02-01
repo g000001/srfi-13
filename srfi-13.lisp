@@ -210,7 +210,7 @@
 (defun substring/shared (s start &optional end)
   (declare (simple-string s))
   (let ((slen (string-length s)))
-    (declare ((and integer rational) start))
+    (declare (type (and integer rational) start))
     (%substring/shared s start
                        (and (integer? end)
                             (exact? end)
