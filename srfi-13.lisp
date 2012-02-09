@@ -1697,7 +1697,7 @@
 			    (lp tstart-1
 				(cons (substring s (+ 1 tstart-1) tend)
 				      ans))))
-			 (else (cons (substring s start tend) ans))))))
+			 (:else (cons (substring s start tend) ans))))))
 	      (:else ans))))))
 
 
