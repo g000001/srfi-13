@@ -212,13 +212,18 @@
   (let ((slen (string-length s)))
     (declare (type (and integer rational) start))
     (%substring/shared s start
-                       (and (integer? end)
-                            (exact? end)
-                            (<= start end)
-                            (<= end slen)))))
+                       (if (and (integer? end)
+                                (exact? end)
+                                (<= start end)
+                                (<= end slen))
+                           end
+                           slen))))
 
 ;;; Split out so that other routines in this library can avoid arg-parsing
 ;;; overhead for END parameter.
+(declaim (ftype (function (cl:string integer integer)
+                          (values cl:string &optional))
+                %substring/shared))
 (define-function (%substring/shared s start end)
   (if (and (zero? start) (= end (string-length s))) s
       (substring s start end)))
