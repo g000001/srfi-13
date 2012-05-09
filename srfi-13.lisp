@@ -1620,7 +1620,7 @@
 
 (defun string-concatenate-reverse (string-list &optional
                                                (final "")
-                                               (end))
+                                               (end (length final)))
   (let ((len (let lp ((sum 0) (lis string-list))
                   (if (pair? lis)
                       (lp (+ sum (string-length (car lis))) (cdr lis))
