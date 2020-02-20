@@ -1,4 +1,4 @@
-(in-package :srfi-13-internal)
+(cl:in-package "https://github.com/g000001/srfi-13#internals")
 
 
 ;; from KMRCL

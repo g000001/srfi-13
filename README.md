@@ -1,4 +1,7 @@
-* SRFI-13: String Libraries
+# SRFI 13 for CL: String Libraries
+
+* https://srfi.schemers.org/srfi-13/
+* License: BSD-style
 
 - Copyright
 The prefix/suffix and comparison routines in this code had (extremely

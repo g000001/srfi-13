@@ -1,6 +1,6 @@
 ;;;; srfi-13.lisp
 
-(cl:in-package :srfi-13-internal)
+(cl:in-package "https://github.com/g000001/srfi-13#internals")
 
 ;;; SRFI 13 string library reference implementation
 ;;; Olin Shivers 7/2000
@@ -493,7 +493,7 @@
 		   (if (= i1 end) (funcall criterion c)	; Tail call.
 		       (and (funcall criterion c) (lp i1)))))))
 
-	  (:else (error "Second param is neither char-set, char, or predicate procedure."
+	  (else (error "Second param is neither char-set, char, or predicate procedure."
                         #'string-every criterion)))))
 
 
@@ -519,7 +519,7 @@
 		    (if (= i1 end) (funcall criterion c)	; Tail call
 			(or (funcall criterion c) (lp i1)))))))
 
-	  (:else (error "Second param is neither char-set, char, or predicate procedure."
+	  (else (error "Second param is neither char-set, char, or predicate procedure."
                         #'string-any criterion)))))
 
 
@@ -884,6 +884,7 @@
 	;; Compute a 111...1 mask that will cover BOUND-1:
 	(mask (let lp ((i #x10000)) ; Let's skip first 16 iterations, eh?
 		(if (>= i bound) (- i 1) (lp (+ i i))))))
+    (cl:declare (cl:function iref))
     (let lp ((i start) (ans 0))
       (if (>= i end) (modulo ans bound)
 	  (lp (+ i 1) (bitwise-and mask (+ (* 37 ans) (funcall iref s i))))))))
@@ -944,15 +945,15 @@
 
 (define-function (%string-titlecase! s start end)
   (let lp ((i start))
-    (srfi-61:cond ((string-index s #'char-cased? i end) :=>
+    (cond ((string-index s #'char-cased? i end) =>
                    (lambda (i)
                      (string-set! s i (char-titlecase (string-ref s i)))
                      (let ((i1 (+ i 1)))
-                       (srfi-61:cond ((string-skip s #'char-cased? i1 end) :=>
+                       (cond ((string-skip s #'char-cased? i1 end) =>
                                       (lambda (j)
                                         (string-downcase! s i1 j)
                                         (lp (+ j 1))))
-		     (:else (string-downcase! s i1 end)))))))))
+		     (else (string-downcase! s i1 end)))))))))
 
 (define-function (string-titlecase! s . maybe-start+end)
   (let-string-start+end (start end) #'string-titlecase! s maybe-start+end
@@ -1024,29 +1025,29 @@
                      criterion
                      (start 0)
                      (end (length s)))
-;  (let-optionals* criterion+start+end ((criterion char-set:whitespace) rest)
+;  (let-optionals* criterion+start+end ((criterion char-set$whitespace) rest)
   (let-string-start+end (start end) #'string-trim s (list criterion start end)
-    (srfi-61:cond
-      ((string-skip s criterion start end) :=>
+    (cond
+      ((string-skip s criterion start end) =>
        (lambda (i) (%substring/shared s i end)))
-      (:else ""))))
+      (else ""))))
 
 (define-function (string-trim-right s . criterion+start+end)
-  (let-optionals* criterion+start+end ((criterion char-set:whitespace) rest)
+  (let-optionals* criterion+start+end ((criterion char-set$whitespace) rest)
     (let-string-start+end (start end) #'string-trim-right s rest
-      (srfi-61:cond ((string-skip-right s criterion start end) :=>
+      (cond ((string-skip-right s criterion start end) =>
                      (lambda (i) (%substring/shared s 0 (+ 1 i))))
-                    (:else "")))))
+                    (else "")))))
 
 (define-function (string-trim-both s . criterion+start+end)
-  (let-optionals* criterion+start+end ((criterion char-set:whitespace) rest)
+  (let-optionals* criterion+start+end ((criterion char-set$whitespace) rest)
     (let-string-start+end (start end) #'string-trim-both s rest
-      (srfi-61:cond ((string-skip s criterion start end) :=>
+      (cond ((string-skip s criterion start end) =>
 	     (lambda (i)
 	       (%substring/shared s
                                   i
                                   (+ 1 (string-skip-right s criterion i end)))))
-	    (:else "")))))
+	    (else "")))))
 
 
 (define-function (string-pad-right s n . char+start+end)
@@ -1103,7 +1104,7 @@
 
 	(let* ((cset (cond ((char-set? criterion) criterion)
 			   ((char? criterion) (char-set criterion))
-			   (:else (error "string-delete criterion not predicate, char or char-set" criterion))))
+			   (else (error "string-delete criterion not predicate, char or char-set" criterion))))
 	       (len (string-fold (lambda (c i) (if (char-set-contains? cset c)
 						   i
 						   (+ i 1)))
@@ -1131,7 +1132,7 @@
 
 	(let* ((cset (cond ((char-set? criterion) criterion)
 			   ((char? criterion) (char-set criterion))
-			   (:else (error "string-delete criterion not predicate, char or char-set" criterion))))
+			   (else (error "string-delete criterion not predicate, char or char-set" criterion))))
 
 	       (len (string-fold (lambda (c i) (if (char-set-contains? cset c)
 						   (+ i 1)
@@ -1174,7 +1175,7 @@
 	     (and (< i end)
 		  (if (funcall criterion (string-ref str i)) i
 		      (lp (+ i 1))))))
-	  (:else (error "Second param is neither char-set, char, or predicate procedure."
+	  (else (error "Second param is neither char-set, char, or predicate procedure."
 		       #'string-index criterion)))))
 
 (define-function (string-index-right str criterion . maybe-start+end)
@@ -1194,7 +1195,7 @@
 	     (and (>= i start)
 		  (if (funcall criterion (string-ref str i)) i
 		      (lp (- i 1))))))
-	  (:else (error "Second param is neither char-set, char, or predicate procedure."
+	  (else (error "Second param is neither char-set, char, or predicate procedure."
                         #'string-index-right criterion)))))
 
 (define-function (string-skip str criterion . maybe-start+end)
@@ -1216,7 +1217,7 @@
 	     (and (< i end)
 		  (if (funcall criterion (string-ref str i)) (lp (+ i 1))
 		      i))))
-	  (:else (error "Second param is neither char-set, char, or predicate procedure."
+	  (else (error "Second param is neither char-set, char, or predicate procedure."
 		       #'string-skip criterion)))))
 
 (define-function (string-skip-right str criterion . maybe-start+end)
@@ -1238,7 +1239,7 @@
 	     (and (>= i start)
 		  (if (funcall criterion (string-ref str i)) (lp (- i 1))
 		      i))))
-	  (:else (error "CRITERION param is neither char-set or char."
+	  (else (error "CRITERION param is neither char-set or char."
                         #'string-skip-right criterion)))))
 
 
@@ -1265,7 +1266,7 @@
                              count)))
 	       ((>= i end) count)))
 
-	  (:else (srfi-23:error "CRITERION param is neither char-set or char."
+	  (else (srfi-23:error "CRITERION param is neither char-set or char."
                                 'string-count criterion)))))
 
 
@@ -1432,7 +1433,7 @@
                                  (setf (aref rv i1) j1)
                                  (lp1 i1 j1 (+ k 1))))
 
-                              (:else (lp2 (aref rv j)))))))))
+                              (else (lp2 (aref rv j)))))))))
     rv))
 
 
@@ -1483,7 +1484,7 @@
              (vi i))			; An index into RV.
          (cond ((= vi patlen) (- si))	; Win.
                ((= si s-end) vi)		; Ran off the end.
-               (:else			; Match s[si] & loop.
+               (else			; Match s[si] & loop.
                 (let ((c (string-ref s si)))
                   (lp (+ si 1)
                       (let lp2 ((vi vi))	; This is just KMP-STEP.
@@ -1578,7 +1579,7 @@
 	  ;; Just one non-empty string! Return it.
 	  ((= nchars (string-length (car first))) (car first))
 
-	  (:else (let ((ans (make-string nchars)))
+	  (else (let ((ans (make-string nchars)))
 		  (let lp ((strings first) (i 0))
 		    (if (pair? strings)
 			(let* ((s (car strings))
@@ -1608,7 +1609,7 @@
 
 
 ;;; Defined by R5RS, so commented out here.
-;(define (string-append . strings) (string-concatenate strings))
+(define (string-append . strings) (string-concatenate strings))
 
 ;;; string-concatenate-reverse        string-list [final-string end] -> string
 ;;; string-concatenate-reverse/shared string-list [final-string end] -> string
@@ -1648,7 +1649,7 @@
                  ((and (zero? end) (= len (string-length (car nzlist))))
                   (car nzlist))
 
-                 (:else
+                 (else
                   (%finish-string-concatenate-reverse len nzlist final end))))))
 
 (define-function (%finish-string-concatenate-reverse len string-list final end)
@@ -1689,21 +1690,21 @@
 
 (define-function (string-tokenize s . token-chars+start+end)
   (let-optionals* token-chars+start+end
-                  ((token-chars char-set:graphic (char-set? token-chars)) rest)
+                  ((token-chars char-set$graphic (char-set? token-chars)) rest)
     (let-string-start+end (start end) #'string-tokenize s rest
       (let lp ((i end) (ans '()))
-	(srfi-61:cond
-          ((and (< start i) (string-index-right s token-chars start i)) :=>
+	(cond
+          ((and (< start i) (string-index-right s token-chars start i)) =>
 	       (lambda (tend-1)
 		 (let ((tend (+ 1 tend-1)))
-		   (srfi-61:cond
-                     ((string-skip-right s token-chars start tend-1) :=>
+		   (cond
+                     ((string-skip-right s token-chars start tend-1) =>
 			  (lambda (tstart-1)
 			    (lp tstart-1
 				(cons (substring s (+ 1 tstart-1) tend)
 				      ans))))
-			 (:else (cons (substring s start tend) ans))))))
-	      (:else ans))))))
+			 (else (cons (substring s start tend) ans))))))
+	      (else ans))))))
 
 
 
@@ -1763,7 +1764,7 @@
 			  (+ start (mod to   slen))))
 
 	    ;; Selected text requires multiple spans.
-	    (:else (let ((ans (make-string anslen)))
+	    (else (let ((ans (make-string anslen)))
                      (%multispan-repcopy! ans 0 s from to start end)
                      ans))))))
 
@@ -1807,7 +1808,7 @@
 			    (+ start (mod sto   slen))))
 
 	    ;; Multi-span copy.
-	    (:else (%multispan-repcopy! target tstart s sfrom sto start end))))))
+	    (else (%multispan-repcopy! target tstart s sfrom sto start end))))))
 
 ;;; This is the core copying loop for XSUBSTRING and STRING-XCOPY!
 ;;; Internal -- not exported, no careful arg checking.
@@ -1883,7 +1884,7 @@
            (error "Empty list cannot be joined with STRICT-INFIX grammar."
                   'string-join ))
 
-          (:else "") )))		; Special-cased for infix grammar.
+          (else "") )))		; Special-cased for infix grammar.
 
 
 ;;; Porting & performance-tuning notes

@@ -1,16 +1,16 @@
-(in-package :srfi-13-internal)
+(cl:in-package "https://github.com/g000001/srfi-13#internals")
 
-(cl:in-package :srfi-13-internal)
 
-(def-suite srfi-13)
+(def-suite* srfi-13)
 
-(in-suite srfi-13)
 
 (defmacro iss (x y)
   `(is (string= ,x ,y)))
 
+
 (defmacro isqu (x y)
   `(is (equal ,x ,y)))
+
 
 (define (proc x . args)
   (let-optionals* args ((a 'a)
@@ -18,15 +18,18 @@
                         (c 'c))
     (list x a b c)))
 
+
 (define (proc2 . args)
   (let-optionals* args ((a 'a) . b)
     (list a b)))
+
 
 (define (proc3 . args)
   (let-optionals* args ((a 0)
                         (b (+ a 1))
                         (c (+ b 1)))
     (list a b c)))
+
 
 (test let-optionals*
   (isqu (proc 0) '(0 A B C))
@@ -41,6 +44,7 @@
   (isqu (proc3 8) '(8 9 10))
   (isqu (proc3 8 2) '(8 2 3))
   (isqu (proc3 8 2 -1) '(8 2 -1)))
+
 
 (test |Predicates|
   ;; string?
@@ -63,6 +67,7 @@
   (is-true (string-any (srfi-14:string->char-set "ab") "aaaa" 0))
   (is-true (string-any (lambda (x) (char=? #\a x)) "aaaa"))
   (is-true (string-any (srfi-14:string->char-set "ab") "aaab")))
+
 
 (test |Constructors|
   (is (string= (make-string 4 #\.)
@@ -95,6 +100,7 @@
                ""))
   (is (string= (string-join '("") ":")
                "")))
+
 
 (test |Selection|
   (is (= 4 (string-length "abcd")))
@@ -134,8 +140,12 @@
 ")
        "The outlook wasn't brilliant,"))
 
+
 (define-function (f) (make-string 3 #\*))
+
+
 (define-function (g) "***")
+
 
 (test |Modification|
   (string-set! (f) 0 #\?)
@@ -150,6 +160,7 @@
          s)
        "aaaa"))
 
+
 (test |Comparison|
   (= 5 (string-compare "The cat in the hat" "abcdefgh"
                        #'values #'values #'values
@@ -163,10 +174,12 @@
                 (= (string-hash-ci "s1" 3)
                    (string-hash-ci "S1" 3)))))
 
+
 (test |Searching|
   (is (= (string-contains "eek -- what a geek." "ee"
                           12 18) ; Searches "a geek"
          15)))
+
 
 (test |Alphabetic case mapping|
   (iss (string-titlecase "--capitalize tHIS sentence.")
@@ -178,24 +191,27 @@
   (iss (string-titlecase "greasy fried chicken" 2)
        "Easy Fried Chicken"))
 
+
 (test |Reverse & append|
   (iss (string-reverse "Able was I ere I saw elba.")
        ".able was I ere I saw elbA")
-  (iss (let ((s "1234567889"))
+  (iss (let ((s "123456789"))
          (let ((i (modulo 4 (string-length s))))
            (string-reverse! s 0 i)
            (string-reverse! s i)
            (string-reverse! s))
          s)
-       "5678891234")
+       (copy-seq "567891234"))
   (iss (string-concatenate-reverse '(" must be" "Hello, I") " going.XXXX" 7)
        "Hello, I must be going."))
+
 
 (defun char-lower-case? (char)
   (and (char/= (char-downcase char)
                (char-upcase char))
        (char= (char-downcase char)
               char)))
+
 
 (test |Fold, unfold & map|
   (isqu (string-fold-right #'cons '() "foo")
@@ -223,6 +239,7 @@
            ans ))
        "\\\\foo\\\\ bar baz\\\\" ))
 
+
 (test |Replicate & rotate|
   (iss (xsubstring "abcdef" 2)
        "cdefab")
@@ -231,7 +248,9 @@
   (iss (xsubstring "abc" 0 7)
        "abcabca"))
 
+
 (define-function (string-insert s i \t) (string-replace s \t i i))
+
 
 (test |Miscellaneous: insertion, parsing|
   (iss (string-replace "The TCL programmer endured daily ridicule."
@@ -245,8 +264,10 @@
   (isqu (string-tokenize "Help make programs run, run, RUN!")
         '("Help" "make" "programs" "run," "run," "RUN!")))
 
+
 (defun eof-object? (obj)
   (eq :eof obj))
+
 
 ;; Read chars from IPORT until we find string PAT or hit EOF.
 (define (port-skip pat iport)
@@ -259,6 +280,7 @@
                 (lp (kmp-step pat rv c i #'char=? 0) ; Continue
                     (+ nchars 1))))))))
 
+
 (test |Knuth-Morris-Pratt searching|
   (iss (with-input-from-string (in "foo bar baz")
          (file-position in
@@ -266,4 +288,5 @@
          (read-line in) )
        " baz"))
 
-;;; eof
+
+;;; *EOF*
